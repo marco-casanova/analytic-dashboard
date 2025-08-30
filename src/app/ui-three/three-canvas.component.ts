@@ -46,8 +46,10 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
   private orthoSize = 1.5;
   private controls!: OrbitControls;
   private heart?: THREE.Object3D;
-  private clusters: THREE.Points[] = [];
-  private pointMaterials: THREE.PointsMaterial[] = [];
+  // Insertion guides replacing C0..C3 point clusters
+  private clusters: THREE.Object3D[] = [];
+  private guideMaterials: THREE.Material[] = [];
+  private guideBaseOpacity = 0.32; // varies slightly per patient
   private palette: number[] = [0xff5370, 0x82aaff, 0xc3e88d, 0xffcb6b];
   private modelCache = new Map<string, THREE.Object3D>();
   private loader = new GLTFLoader();
@@ -70,11 +72,11 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
     this.loadHeartModelForSelected();
   });
 
-  // Rebuild point clouds whenever filtered points change
+  // Rebuild insertion guides whenever filters change (uses filteredPoints as a trigger)
   private readonly effPoints = effect(() => {
     // Access the value to establish dependency
     void this.store.filteredPoints();
-    this.rebuildPoints();
+    this.rebuildGuides();
   });
 
   private readonly effClusters = effect(() => {
@@ -115,11 +117,14 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
   private readonly effOverlay = effect(() => {
     const show = this.store.showOverlay();
     const xray = this.xray();
-    this.pointMaterials.forEach((m) => {
-      m.depthTest = !xray;
-      (m as any).depthWrite = !xray;
-      m.transparent = xray;
-      m.opacity = xray ? 0.85 : 1.0;
+    this.guideMaterials.forEach((m) => {
+      if ('depthTest' in (m as any)) (m as any).depthTest = !xray;
+      if ('depthWrite' in (m as any)) (m as any).depthWrite = !xray;
+      (m as any).transparent = true;
+      // Keep a consistent translucent look; slightly emphasize in xray
+      (m as any).opacity = xray
+        ? Math.min(0.6, this.guideBaseOpacity + 0.13)
+        : this.guideBaseOpacity;
     });
     this.clusters.forEach((g) => {
       g.renderOrder = xray ? 999 : 1;
@@ -307,6 +312,8 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
       this.fitToCurrent();
       if (this.store.wireframe()) this.updateGrid();
       if (this.store.showOverlay()) this.updateRuler();
+      // Rebuild guides to match new bounds
+      this.rebuildGuides();
     } catch (e) {
       // Show a simple placeholder if patient model is unavailable
       const geo = new THREE.SphereGeometry(0.15, 32, 32);
@@ -323,6 +330,7 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
       this.fitToCurrent();
       if (this.store.wireframe()) this.updateGrid();
       if (this.store.showOverlay()) this.updateRuler();
+      this.rebuildGuides();
     }
   }
 
@@ -423,40 +431,182 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
     return obj;
   }
 
-  private rebuildPoints() {
-    // clear old
-    for (const c of this.clusters) {
-      this.scene.remove(c);
-      c.geometry.dispose();
+  private rebuildGuides() {
+    // Remove previous guides
+    for (const obj of this.clusters) {
+      this.scene.remove(obj);
+      this.disposeGroup(obj);
     }
     this.clusters = [];
-    this.pointMaterials.forEach((m) => m.dispose());
-    this.pointMaterials = [];
+    this.guideMaterials.forEach((m) => m.dispose?.());
+    this.guideMaterials = [];
 
-    const pts = this.store.filteredPoints();
-    // Build one Points per cluster for toggling
-    for (let k = 0; k < 4; k++) {
-      const arr = pts.filter((p) => p.cluster === (k as 0 | 1 | 2 | 3));
-      const geo = new THREE.BufferGeometry();
-      const pos = new Float32Array(arr.length * 3);
-      arr.forEach((p, i) => {
-        pos[3 * i] = p.x - this.modelOffset.x;
-        pos[3 * i + 1] = p.y - this.modelOffset.y;
-        pos[3 * i + 2] = p.z - this.modelOffset.z;
-      });
-      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      const mat = new THREE.PointsMaterial({
-        size: 0.01,
-        color: this.palette[k],
-        sizeAttenuation: true,
-      });
-      const cloud = new THREE.Points(geo, mat);
-      cloud.renderOrder = 1;
-      this.scene.add(cloud);
-      this.clusters.push(cloud);
-      this.pointMaterials.push(mat);
+    // Determine bounds
+    let min = new THREE.Vector3(-1, -1, -1);
+    let max = new THREE.Vector3(1, 1, 1);
+    if (this.heart) {
+      const box = new THREE.Box3().setFromObject(this.heart);
+      min.copy(box.min);
+      max.copy(box.max);
     }
-    // No annotations
+    const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
+    const size = new THREE.Vector3().subVectors(max, min);
+    const maxLen = Math.max(size.x, size.y, size.z) || 2;
+    // Build a centered cube to contain the model and keep guides inside
+    const half = maxLen / 2;
+    const cubeMin = new THREE.Vector3(center.x - half, center.y - half, center.z - half);
+    const cubeMax = new THREE.Vector3(center.x + half, center.y + half, center.z + half);
+    // Use a small inner margin so guides don't coincide with the cube surface
+    const margin = maxLen * 0.02;
+    const innerMin = cubeMin.clone().addScalar(margin);
+    const innerMax = cubeMax.clone().addScalar(-margin);
+    // Per-patient variations
+    const variant = this.computeGuideVariant(this.selectedId(), size);
+    this.guideBaseOpacity = variant.baseOpacity;
+    const thickness = maxLen * 0.03 * variant.thicknessScale; // thin, but visible
+
+    const makeBoxBetween = (a: THREE.Vector3, b: THREE.Vector3, color: number): THREE.Mesh => {
+      const dir = new THREE.Vector3().subVectors(b, a);
+      const len = dir.length();
+      const geo = new THREE.BoxGeometry(len, thickness, thickness);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        transparent: true,
+        opacity: this.guideBaseOpacity,
+        metalness: 0.0,
+        roughness: 0.9,
+        depthWrite: !this.xray(),
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      // orient local X to dir
+      const quat = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(1, 0, 0),
+        dir.clone().normalize()
+      );
+      mesh.quaternion.copy(quat);
+      mesh.position.copy(new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5));
+      mesh.renderOrder = this.xray() ? 999 : 1;
+      this.guideMaterials.push(mat);
+      return mesh;
+    };
+
+    // Define four paths spanning the cube with small offsets per patient
+    const paths: Array<[THREE.Vector3, THREE.Vector3, number]> = [];
+    const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+    // C0: Along X with small patient-specific offset in Y/Z
+    {
+      const y0 = clamp(center.y + variant.offsetXY.y, innerMin.y, innerMax.y);
+      const z0 = clamp(center.z + variant.offsetXY.z, innerMin.z, innerMax.z);
+      paths.push([
+        new THREE.Vector3(innerMin.x, y0, z0),
+        new THREE.Vector3(innerMax.x, y0, z0),
+        this.palette[0],
+      ]);
+    }
+    // C1: Along Y with offset in X/Z
+    {
+      const x0 = clamp(center.x + variant.offsetYZ.x, innerMin.x, innerMax.x);
+      const z0 = clamp(center.z + variant.offsetYZ.z, innerMin.z, innerMax.z);
+      paths.push([
+        new THREE.Vector3(x0, innerMin.y, z0),
+        new THREE.Vector3(x0, innerMax.y, z0),
+        this.palette[1],
+      ]);
+    }
+    // C2: Along Z with offset in X/Y
+    {
+      const x0 = clamp(center.x + variant.offsetZX.x, innerMin.x, innerMax.x);
+      const y0 = clamp(center.y + variant.offsetZX.y, innerMin.y, innerMax.y);
+      paths.push([
+        new THREE.Vector3(x0, y0, innerMin.z),
+        new THREE.Vector3(x0, y0, innerMax.z),
+        this.palette[2],
+      ]);
+    }
+    // C3: One of the cube diagonals selected per patient
+    const diags: Array<[THREE.Vector3, THREE.Vector3]> = [
+      [innerMin.clone(), innerMax.clone()],
+      [
+        new THREE.Vector3(innerMax.x, innerMin.y, innerMin.z),
+        new THREE.Vector3(innerMin.x, innerMax.y, innerMax.z),
+      ],
+      [
+        new THREE.Vector3(innerMin.x, innerMax.y, innerMin.z),
+        new THREE.Vector3(innerMax.x, innerMin.y, innerMax.z),
+      ],
+      [
+        new THREE.Vector3(innerMin.x, innerMin.y, innerMax.z),
+        new THREE.Vector3(innerMax.x, innerMax.y, innerMin.z),
+      ],
+    ];
+    const idx = ((variant.diagonalIndex % diags.length) + diags.length) % diags.length;
+    const d = diags[idx];
+    paths.push([d[0], d[1], this.palette[3]]);
+
+    paths.forEach(([a, b, col]) => {
+      const guide = makeBoxBetween(a, b, col);
+      this.scene.add(guide);
+      this.clusters.push(guide);
+    });
+
+    // Apply 2D thickness adjustments
+    this.updateGuideThickness(this.store.twoD());
+  }
+
+  // Compute small, deterministic per-patient variations for guides
+  private computeGuideVariant(
+    patientId: string | null | undefined,
+    size: THREE.Vector3
+  ): {
+    thicknessScale: number;
+    baseOpacity: number;
+    diagonalIndex: number;
+    offsetXY: { y: number; z: number };
+    offsetYZ: { x: number; z: number };
+    offsetZX: { x: number; y: number };
+  } {
+    const id = patientId ?? 'default';
+    let h = 2166136261 >>> 0; // FNV-1a base
+    for (let i = 0; i < id.length; i++) {
+      h ^= id.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    const rand = (seed: number) => {
+      // xorshift32
+      let x = (h ^ seed) >>> 0;
+      x ^= x << 13;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      // Normalize to [0,1)
+      return ((x >>> 0) & 0xffffffff) / 4294967296; // 2^32
+    };
+    const r1 = rand(0x9e37);
+    const r2 = rand(0x7f4a7c15);
+    const r3 = rand(0x94d049bb);
+    const r4 = rand(0x1b873593);
+    const r5 = rand(0x85ebca6b);
+    const r6 = rand(0xc2b2ae35);
+
+    // Thickness within ~±20%
+    const thicknessScale = 0.9 + (r1 - 0.5) * 0.4; // [0.7, 1.1]
+    // Base opacity subtle variance [0.28, 0.38]
+    const baseOpacity = 0.28 + r2 * 0.1;
+    // Pick one of 4 diagonals
+    const diagonalIndex = Math.max(0, Math.min(3, Math.floor(r3 * 4)));
+
+    // Offsets up to ~5% of each dimension
+    const ox = (r4 - 0.5) * 0.1 * Math.max(0.0001, size.x);
+    const oy = (r5 - 0.5) * 0.1 * Math.max(0.0001, size.y);
+    const oz = (r6 - 0.5) * 0.1 * Math.max(0.0001, size.z);
+
+    return {
+      thicknessScale,
+      baseOpacity,
+      diagonalIndex,
+      offsetXY: { y: oy, z: oz },
+      offsetYZ: { x: ox, z: oz },
+      offsetZX: { x: ox, y: oy },
+    };
   }
 
   private fitToCurrent() {
@@ -511,6 +661,7 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
       this.controls.enablePan = true;
       this.controls.enableZoom = true;
       this.fitToCurrent();
+      this.updateGuideThickness(true);
     } else {
       this.camera = this.perspCamera;
       this.controls.dispose();
@@ -519,6 +670,18 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
       this.controls.dampingFactor = 0.08;
       this.controls.enableRotate = true;
       this.fitToCurrent();
+      this.updateGuideThickness(false);
+    }
+  }
+
+  private updateGuideThickness(twoD: boolean) {
+    // Thinner in 2D for a "line-like" appearance
+    const s = twoD ? 0.25 : 1.0;
+    for (const obj of this.clusters) {
+      if ((obj as any).isMesh) {
+        // Scale only cross-section (local Y/Z)
+        (obj as THREE.Mesh).scale.set(1, s, s);
+      }
     }
   }
 
@@ -679,8 +842,8 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     removeEventListener('resize', this.onResize);
     this.renderer?.dispose();
-    this.pointMaterials.forEach((m) => m.dispose());
-    this.clusters.forEach((c) => c.geometry.dispose());
+    this.guideMaterials.forEach((m) => m.dispose?.());
+    this.clusters.forEach((c) => this.disposeGroup(c));
     if (this.extraLight) {
       this.scene.remove(this.extraLight);
       this.extraLight.dispose?.();
