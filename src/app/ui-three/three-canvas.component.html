@@ -1,0 +1,21 @@
+<div class="toolbar">
+  <label>
+  Patient
+  <select [value]="selectedId() ?? ''" (change)="onSelect($any($event.target).value)">
+  <option value="" disabled>Select...</option>
+  <option *ngFor="let p of patients()" [value]="p.id">{{p.name}} ({{p.id}})</option>
+  </select>
+  </label>
+
+
+  <label><input type="checkbox" [checked]="store.showOverlay()" (change)="store.toggleOverlay($any($event.target).checked)"> Overlay</label>
+  <label *ngFor="let _ of [0,1,2,3]; let i = index">
+  <input type="checkbox" [checked]="$any(clustersVisible())[i]" (change)="toggleClusterIndex(i)"> C{{i}}
+  </label>
+
+
+  <button (click)="resetView()">Reset View</button>
+  <button (click)="xray.set(!xray())">{{ xray() ? 'Normal' : 'X-ray' }}</button>
+  <a routerLink="/plots" class="btn">Charts</a>
+</div>
+<canvas #canvas class="viewport" aria-label="3D Heart"></canvas>

@@ -1,0 +1,32 @@
+<header class="topnav">
+  <div class="brand" routerLink="/" title="Analytic Dashboard">
+    <span class="logo">❤</span>
+    <span class="name">Cardio Insights</span>
+  </div>
+  <nav class="links">
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">3D Viewer</a>
+    <a routerLink="/plots" routerLinkActive="active">Analytics</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="controls">
+    <label class="select">
+      <span>Patient</span>
+      <select [value]="selectedId() ?? ''" (change)="onSelect($any($event.target).value)">
+        <option value="" disabled>Select…</option>
+        <option *ngFor="let p of patients()" [value]="p.id">{{p.name}} ({{p.id}})</option>
+      </select>
+    </label>
+    <label class="toggle">
+      <input type="checkbox" [checked]="showOverlay()" (change)="store.toggleOverlay($any($event.target).checked)"> Overlay
+    </label>
+    <label class="toggle">
+      <input type="checkbox" [checked]="store.wireframe()" (change)="store.toggleWireframe($any($event.target).checked)"> Wireframe
+    </label>
+    <label class="toggle">
+      <input type="checkbox" [checked]="store.extraLight()" (change)="store.toggleExtraLight($any($event.target).checked)"> Extra light
+    </label>
+    <label class="toggle">
+      <input type="checkbox" [checked]="store.twoD()" (change)="store.toggleTwoD($any($event.target).checked)"> 2D mode
+    </label>
+  </div>
+</header>

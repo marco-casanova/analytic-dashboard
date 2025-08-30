@@ -1,0 +1,4 @@
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:16px}
+.card{min-height:260px;border-radius:10px;background:#161b22;border:1px solid #232a34;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+#chart1,#chart2,#chart3,#chart4,#chart5,#chart6,#chart7,#chart8{width:100%;height:320px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
