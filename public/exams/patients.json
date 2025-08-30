@@ -1,0 +1,6 @@
+[
+  { "id": "p1", "name": "Ana Torres", "studyDate": "2025-07-10", "modelUrl": "/exams/p1/heart.glb" },
+  { "id": "p2", "name": "Bruno Dias", "studyDate": "2025-07-18", "modelUrl": "/exams/p2/heart.glb" },
+  { "id": "p3", "name": "Clara Lee", "studyDate": "2025-08-02", "modelUrl": "/exams/p3/heart.glb" },
+  { "id": "p4", "name": "Diego Cruz", "studyDate": "2025-08-15", "modelUrl": "/exams/p4/heart.glb" }
+]

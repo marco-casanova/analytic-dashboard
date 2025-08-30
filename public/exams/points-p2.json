@@ -1,0 +1,6 @@
+[
+  { "x": 0.02, "y": -0.03, "z": -0.08, "cluster": 0, "metric": "activation_ms", "value": 110.0 },
+  { "x": 0.04, "y": 0.01, "z": -0.06, "cluster": 1, "metric": "activation_ms", "value": 115.3 },
+  { "x": -0.01, "y": 0.06, "z": 0.07, "cluster": 2, "metric": "activation_ms", "value": 128.5 },
+  { "x": -0.06, "y": -0.02, "z": 0.03, "cluster": 3, "metric": "activation_ms", "value": 135.9 }
+]

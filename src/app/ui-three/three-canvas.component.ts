@@ -89,19 +89,24 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
     list.forEach((p) => {
       const raw = p.modelUrl;
       const isAbs = /^https?:\/\//i.test(raw);
-      const norm = raw.startsWith('/')
-        ? raw
-        : isAbs
-        ? raw
-        : `/models/${raw.replace(/^models\/?/, '')}`;
+      // Build candidates without forcing /api for static assets
+      const candidates: string[] = [];
       if (isAbs) {
-        void this.getOrLoadModel(raw).catch(() => {});
+        candidates.push(raw);
+      } else if (raw.startsWith('/')) {
+        // Already an absolute-root path (e.g., /exams/p1/heart.glb or /models/foo.glb)
+        candidates.push(raw);
       } else {
-        // Try /models first, then /api/models for backends that nest models under /api
-        const c1 = `${this.base}${norm}`;
-        const c2 = `${this.base}/api${norm}`;
-        void this.tryLoadAny([c1, c2]).catch(() => {});
+        // Normalize relative references
+        const cleaned = raw.replace(/^\.?:?\/?/, '');
+        if (/^(exams|models)\//.test(cleaned)) {
+          candidates.push(`/${cleaned}`);
+        } else {
+          // Default to /models for backwards compatibility
+          candidates.push(`/models/${cleaned}`);
+        }
       }
+      void this.tryLoadAny(candidates).catch(() => {});
     });
   });
 
@@ -260,16 +265,22 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
     const id = this.selectedId();
     const list = this.patients();
     const patient = list.find((p) => p.id === id);
-    // Normalize and build candidate URLs: absolute, /models/..., /api/models/...
+    // Normalize and build candidate URLs: prefer static assets under /exams or /models
     const raw = patient?.modelUrl ?? '/models/heart.glb';
     const isAbs = /^https?:\/\//i.test(raw);
-    const norm = raw.startsWith('/')
-      ? raw
-      : isAbs
-      ? raw
-      : `/models/${raw.replace(/^models\/?/, '')}`;
-    // Try both /models and /api/models to accommodate different backends/proxies
-    const candidates: string[] = isAbs ? [raw] : [`${this.base}${norm}`, `${this.base}/api${norm}`];
+    const candidates: string[] = [];
+    if (isAbs) {
+      candidates.push(raw);
+    } else if (raw.startsWith('/')) {
+      candidates.push(raw);
+    } else {
+      const cleaned = raw.replace(/^\.?:?\/?/, '');
+      if (/^(exams|models)\//.test(cleaned)) {
+        candidates.push(`/${cleaned}`);
+      } else {
+        candidates.push(`/models/${cleaned}`);
+      }
+    }
 
     // Remove previous
     if (this.heart) {

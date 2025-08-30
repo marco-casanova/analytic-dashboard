@@ -9,14 +9,19 @@ import { mapPoint } from './mappers';
 @Injectable({ providedIn: 'root' })
 export class HeartApiService implements HeartRepository {
   private http = inject(HttpClient);
-  private base = inject(API_BASE, { optional: true }) ?? 'http://localhost:4000';
+  // Keep API_BASE injection for compatibility
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private _base = inject(API_BASE, { optional: true });
 
   async listPatients(): Promise<Patient[]> {
-    const obs = this.http.get<Patient[]>(`${this.base}/api/patients`);
+    // Read local patients from public/data
+    const obs = this.http.get<Patient[]>('/data/patients.json');
     return firstValueFrom(obs);
   }
   async getPoints(patientId: string): Promise<HeartPoint[]> {
-    const obs = this.http.get<any[]>(`${this.base}/api/patients/${patientId}/points`);
+    // Read local points from public/data
+    const url = `/data/points-${encodeURIComponent(patientId)}.json`;
+    const obs = this.http.get<any[]>(url);
     const raw = await firstValueFrom(obs);
     return raw.map(mapPoint);
   }

@@ -99,11 +99,11 @@ export class DotPlotsComponent implements OnInit {
   private async fetchAndRender(patientId: string) {
     this.loading.set(true);
     try {
-      const apiRes = await fetch(`/api/patients/${encodeURIComponent(patientId)}/analytics`);
-      if (!apiRes.ok) throw new Error(`API ${apiRes.status}`);
-      this.data.set(await apiRes.json());
+      const res = await fetch(`/data/analytics-${encodeURIComponent(patientId)}.json`);
+      if (!res.ok) throw new Error(`Local analytics missing`);
+      this.data.set(await res.json());
     } catch {
-      // If API unavailable, use fallback
+      // If local unavailable, use fallback
       await this.applyFallbackData();
     } finally {
       this.loading.set(false);
@@ -119,11 +119,19 @@ export class DotPlotsComponent implements OnInit {
   private async applyFallbackData() {
     if (this.fallbackUsed && this.data()) return;
     try {
-      const res = await fetch('/data/sample-metrics.json');
+      // Prefer a local per-patient analytics file as fallback
+      const res = await fetch('/data/analytics-p1.json');
       this.data.set(await res.json());
       this.fallbackUsed = true;
     } catch {
-      // No data available; keep null
+      // Ultimate fallback (legacy sample)
+      try {
+        const res2 = await fetch('/data/sample-metrics.json');
+        this.data.set(await res2.json());
+        this.fallbackUsed = true;
+      } catch {
+        // No data available; keep null
+      }
     }
   }
 
