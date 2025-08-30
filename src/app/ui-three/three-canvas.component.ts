@@ -34,6 +34,8 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
   readonly selectedId = this.store.selectedId;
   readonly clustersVisible = this.store.clustersVisible;
   readonly xray = signal(false);
+  // Optional model tint color (hex string like '#ff0000' or null)
+  readonly modelColor = signal<string | null>(null);
 
   // Three.js objects
   private renderer!: THREE.WebGLRenderer;
@@ -79,7 +81,7 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
     const vis = this.clustersVisible();
     const show = this.store.showOverlay();
     if (!this.clusters.length) return;
-    this.clusters.forEach((g, i) => (g.visible = show && vis[i as 0 | 1 | 2 | 3]));
+    this.clusters.forEach((g, i) => (g.visible = show && !!vis[i as 0 | 1 | 2 | 3]));
   });
 
   // Preload models for all patients when the list arrives
@@ -115,6 +117,7 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
     const xray = this.xray();
     this.pointMaterials.forEach((m) => {
       m.depthTest = !xray;
+      (m as any).depthWrite = !xray;
       m.transparent = xray;
       m.opacity = xray ? 0.85 : 1.0;
     });
@@ -129,12 +132,11 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
           if (mat) {
             (mat as any).transparent = xray;
             (mat as any).opacity = xray ? 0.35 : 1.0;
+            if ('depthWrite' in mat) (mat as any).depthWrite = !xray;
           }
         }
       });
     }
-    // Overlay controls points visibility
-    this.clusters.forEach((g) => (g.visible = show && g.visible));
     // Toggle 3D ruler with overlay
     this.updateRuler();
   });
@@ -293,6 +295,8 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
       // Clone so each selection has its own instance/materials
       const instance = model.clone(true);
       instance.scale.set(0.01, 0.01, 0.01);
+      // Apply current tint if any
+      if (this.modelColor()) this.applyModelColor(instance, this.modelColor()!);
       // Center model and remember offset so points stay aligned
       const box = new THREE.Box3().setFromObject(instance);
       const center = box.getCenter(new THREE.Vector3());
@@ -320,6 +324,81 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
       if (this.store.wireframe()) this.updateGrid();
       if (this.store.showOverlay()) this.updateRuler();
     }
+  }
+
+  // UI handlers for color control
+  onColorInput(val: string) {
+    // expect #rrggbb; accept empty to clear
+    const hex =
+      typeof val === 'string' && /^#?[0-9a-fA-F]{6}$/.test(val)
+        ? val.startsWith('#')
+          ? val
+          : `#${val}`
+        : null;
+    if (hex) {
+      this.modelColor.set(hex);
+      if (this.heart) this.applyModelColor(this.heart, hex);
+    }
+  }
+
+  clearColor() {
+    this.modelColor.set(null);
+    if (this.heart) this.restoreOriginalMaterials(this.heart);
+  }
+
+  toggleFullColor(on: boolean) {
+    if (on) {
+      // Pick a pleasant default if none chosen
+      const hex = this.modelColor() ?? '#d32f2f';
+      this.modelColor.set(hex);
+      // Disable x-ray for full color
+      if (this.xray()) this.xray.set(false);
+      if (this.heart) this.applyModelColor(this.heart, hex);
+    } else {
+      this.clearColor();
+    }
+  }
+
+  // Apply a uniform tint to all mesh materials in the object
+  private applyModelColor(root: THREE.Object3D, hex: string) {
+    const color = new THREE.Color(hex);
+    root.traverse((o: any) => {
+      if (!o.isMesh || !o.material) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        // Preserve originals once
+        if ((m as any).__orig === undefined) {
+          (m as any).__orig = {
+            color: (m as any).color ? (m as any).color.clone() : null,
+            metalness: (m as any).metalness ?? null,
+            roughness: (m as any).roughness ?? null,
+            emissive: (m as any).emissive ? (m as any).emissive.clone() : null,
+          };
+        }
+        if ('color' in m && (m as any).color?.set) (m as any).color.set(color);
+        if ('metalness' in m)
+          (m as any).metalness = Math.max(0, Math.min(1, (m as any).metalness ?? 0.2));
+        if ('roughness' in m)
+          (m as any).roughness = Math.max(0, Math.min(1, (m as any).roughness ?? 0.8));
+        if ('needsUpdate' in m) (m as any).needsUpdate = true;
+      }
+    });
+  }
+
+  private restoreOriginalMaterials(root: THREE.Object3D) {
+    root.traverse((o: any) => {
+      if (!o.isMesh || !o.material) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        const orig = (m as any).__orig;
+        if (!orig) continue;
+        if (orig.color && 'color' in m) (m as any).color.copy(orig.color);
+        if (orig.metalness !== null && 'metalness' in m) (m as any).metalness = orig.metalness;
+        if (orig.roughness !== null && 'roughness' in m) (m as any).roughness = orig.roughness;
+        if (orig.emissive && 'emissive' in m) (m as any).emissive.copy(orig.emissive);
+        if ('needsUpdate' in m) (m as any).needsUpdate = true;
+      }
+    });
   }
 
   private async tryLoadAny(urls: string[]): Promise<THREE.Object3D> {

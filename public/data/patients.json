@@ -1,5 +1,6 @@
 [
   { "id": "p1", "name": "Ana Torres", "studyDate": "2025-07-10", "modelUrl": "/exams/CM0035_NIH3D.glb" },
   { "id": "p2", "name": "Bruno Dias", "studyDate": "2025-07-18", "modelUrl": "/exams/CM0037_Whole_NIH3D.glb" },
-  { "id": "p3", "name": "Clara Lee", "studyDate": "2025-08-02", "modelUrl": "/exams/CM0099_20Bloodpool_001_NIH3D.glb" }
+  { "id": "p3", "name": "Clara Lee", "studyDate": "2025-08-02", "modelUrl": "/exams/CM0099_20Bloodpool_001_NIH3D.glb" },
+  { "id": "p4", "name": "Diego Cruz", "studyDate": "2025-08-15", "modelUrl": "/exams/CONFIDENTIAL_BP_2022_001_NIH3D.glb" }
 ]

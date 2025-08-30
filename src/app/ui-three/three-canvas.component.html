@@ -1,21 +1,24 @@
 <div class="toolbar">
-  <label>
-  Patient
-  <select [value]="selectedId() ?? ''" (change)="onSelect($any($event.target).value)">
-  <option value="" disabled>Select...</option>
-  <option *ngFor="let p of patients()" [value]="p.id">{{p.name}} ({{p.id}})</option>
-  </select>
-  </label>
-
-
-  <label><input type="checkbox" [checked]="store.showOverlay()" (change)="store.toggleOverlay($any($event.target).checked)"> Overlay</label>
-  <label *ngFor="let _ of [0,1,2,3]; let i = index">
-  <input type="checkbox" [checked]="$any(clustersVisible())[i]" (change)="toggleClusterIndex(i)"> C{{i}}
+  <label class="toggle"><span>Overlay</span><input type="checkbox" [checked]="store.showOverlay()" (change)="store.toggleOverlay($any($event.target).checked)"></label>
+  <label class="toggle"><span>Wireframe</span><input type="checkbox" [checked]="store.wireframe()" (change)="store.toggleWireframe($any($event.target).checked)"></label>
+  <label class="toggle"><span>2D</span><input type="checkbox" [checked]="store.twoD()" (change)="store.toggleTwoD($any($event.target).checked)"></label>
+  <label class="toggle" *ngFor="let _ of [0,1,2,3]; let i = index">
+    <span>C{{i}}</span>
+    <input type="checkbox" [checked]="$any(clustersVisible())[i]" (change)="toggleClusterIndex(i)">
   </label>
 
 
   <button (click)="resetView()">Reset View</button>
   <button (click)="xray.set(!xray())">{{ xray() ? 'Normal' : 'X-ray' }}</button>
+  <label class="toggle">
+    <span>Full color</span>
+    <input type="checkbox" [checked]="!!modelColor()" (change)="toggleFullColor($any($event.target).checked)" />
+  </label>
+  <label>
+    Color
+    <input type="color" [value]="modelColor() ?? '#ffffff'" (input)="onColorInput($any($event.target).value)" />
+    <button type="button" (click)="clearColor()">Clear</button>
+  </label>
   <a routerLink="/plots" class="btn">Charts</a>
 </div>
 <canvas #canvas class="viewport" aria-label="3D Heart"></canvas>

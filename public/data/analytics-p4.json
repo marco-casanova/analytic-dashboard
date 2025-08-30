@@ -1,0 +1,11 @@
+{
+  "meta": {"examDate":"2025-08-15","hrBpm":74,"bp":"124/80","efPct":53,"diagnosis":"Borderline EF"},
+  "scatter": [ {"lv":128,"ef":53},{"lv":165,"ef":49},{"lv":195,"ef":42} ],
+  "strip": {"groups":["Healthy","At Risk","HF"],"values":{"Healthy":[61,65,67,71],"At Risk":[51,53,55,57],"HF":[33,37,39,41]}},
+  "violin": {"groups":["Healthy","At Risk","HF"],"values":{"Healthy":[61,63,66,68,70],"At Risk":[51,52,54,55,57],"HF":[32,34,36,38,40]}},
+  "timeline": [ {"t": 6 }, { "t": 16 }, { "t": 27 }, { "t": 39 }, { "t": 62 } ],
+  "bubble": [ {"x":98,"y":158,"r":9},{"x":122,"y":182,"r":13},{"x":146,"y":205,"r":17} ],
+  "polar": [ {"theta":50,"r":0.96},{"theta":140,"r":0.86},{"theta":290,"r":0.76} ],
+  "corr": {"labels":["LV Mass","BP","EF"],"matrix":[[1.0,0.26,-0.57],[0.26,1.0,-0.36],[-0.57,-0.36,1.0]]},
+  "swarm": {"groups":["Patient A","Patient B","Patient C"],"values":{"Patient A":[98,119,131,113],"Patient B":[204,209,193,207],"Patient C":[299,294,311,305]}}
+}

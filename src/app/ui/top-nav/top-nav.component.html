@@ -16,17 +16,5 @@
         <option *ngFor="let p of patients()" [value]="p.id">{{p.name}} ({{p.id}})</option>
       </select>
     </label>
-    <label class="toggle">
-      <input type="checkbox" [checked]="showOverlay()" (change)="store.toggleOverlay($any($event.target).checked)"> Overlay
-    </label>
-    <label class="toggle">
-      <input type="checkbox" [checked]="store.wireframe()" (change)="store.toggleWireframe($any($event.target).checked)"> Wireframe
-    </label>
-    <label class="toggle">
-      <input type="checkbox" [checked]="store.extraLight()" (change)="store.toggleExtraLight($any($event.target).checked)"> Extra light
-    </label>
-    <label class="toggle">
-      <input type="checkbox" [checked]="store.twoD()" (change)="store.toggleTwoD($any($event.target).checked)"> 2D mode
-    </label>
   </div>
 </header>
