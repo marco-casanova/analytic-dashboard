@@ -11,28 +11,55 @@
       <div class="field" [class.invalid]="form.controls.username.touched && form.controls.username.invalid">
         <label>Username</label>
         <input type="text" formControlName="username" placeholder="Enter your username" autocomplete="username" />
-        <div class="error" *ngIf="form.controls.username.touched && form.controls.username.hasError('required')">Username is required</div>
+        @if (form.controls.username.touched && form.controls.username.hasError('required')) {
+          <div class="error">Username is required</div>
+        }
       </div>
 
       <div class="field" [class.invalid]="form.controls.password.touched && form.controls.password.invalid">
         <label>Password</label>
         <div class="password">
           <input [type]="showPassword() ? 'text' : 'password'" formControlName="password" placeholder="" autocomplete="current-password" />
-          <button type="button" class="toggle" (click)="toggleShowPassword()" aria-label="Toggle password">{{ showPassword() ? 'Hide' : 'Show' }}</button>
+          <button
+            type="button"
+            class="toggle"
+            (click)="toggleShowPassword()"
+            [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+            [attr.title]="showPassword() ? 'Hide password' : 'Show password'"
+            [attr.aria-pressed]="showPassword()"
+          >
+            @if (!showPassword()) {
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M1 12c2.8-5 7.2-8 11-8s8.2 3 11 8c-2.8 5-7.2 8-11 8S3.8 17 1 12z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M1 12c2.8-5 7.2-8 11-8s8.2 3 11 8c-1.1 2-2.5 3.6-4.1 4.9" />
+                <circle cx="12" cy="12" r="3" />
+                <path d="M2 2l20 20" stroke-linecap="round" />
+              </svg>
+            }
+          </button>
         </div>
-        <div class="error" *ngIf="form.controls.password.touched && form.controls.password.hasError('required')">Password is required</div>
+        @if (form.controls.password.touched && form.controls.password.hasError('required')) {
+          <div class="error">Password is required</div>
+        }
       </div>
 
-      <div class="auth-error" *ngIf="authError()">{{ authError() }}</div>
+      @if (authError()) {
+        <div class="auth-error">{{ authError() }}</div>
+      }
 
       <button class="submit" [disabled]="loading()" type="submit">Sign in</button>
     </form>
 
 
   </div>
-
-  <div class="loading-overlay" *ngIf="loading()">
-    <div class="spinner"></div>
-    <div class="loading-text">Signing you in…</div>
-  </div>
+  @if (loading()) {
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Signing you in…</div>
+    </div>
+  }
 </div>

@@ -1,17 +1,45 @@
-.login-wrap{position:relative;min-height:100vh;display:grid;place-items:center;overflow:hidden}
-.bg{position:absolute;inset:0;background:radial-gradient(1200px 600px at 10% 10%,rgba(56,189,248,.25),transparent 60%),radial-gradient(900px 600px at 90% 80%,rgba(139,92,246,.25),transparent 60%),linear-gradient(135deg,#0ea5e9,#7c3aed);filter:saturate(120%);opacity:.9}
-.login-card{position:relative;width:min(92vw,440px);background:#fff;border-radius:16px;box-shadow:0 25px 60px rgba(2,6,23,.25),0 8px 20px rgba(2,6,23,.2);padding:28px 24px;border:1px solid rgba(2,6,23,.08);backdrop-filter:saturate(120%) blur(2px);animation:pop .24s ease}
+.login-wrap{position:relative;min-height:100vh;display:grid;place-items:center;overflow:hidden;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Noto Sans,"Apple Color Emoji","Segoe UI Emoji"}
+.bg{position:absolute;inset:0;filter:saturate(120%);
+	background-image:linear-gradient(135deg,rgba(15,23,42,.55),rgba(15,23,42,.55)),url('/xraybg.webp');
+	background-repeat:no-repeat,repeat;
+	background-position:center,top left;
+	background-size:cover,auto
+}
+.login-card{position:relative;width:min(92vw,440px);
+	/* Solid semi-transparent black fill */
+	background-color:rgba(0,0,0,.66);
+	/* Gradient only on the border via layered backgrounds */
+	border-radius:16px;border:1px solid transparent;
+	background-origin:border-box;background-clip:padding-box,border-box;
+	box-shadow:0 25px 60px rgba(2,6,23,.35),0 8px 20px rgba(2,6,23,.28);
+	padding:60px 54px;backdrop-filter:saturate(120%) blur(6px);animation:pop .24s ease}
+
+/* Modern animated gradient border ring */
+.login-card::before{content:"";position:absolute;inset:0;padding:1.5px;border-radius:inherit;pointer-events:none;
+	background:conic-gradient(from 0deg,#3b82f6,#8b5cf6,#22c55e,#3b82f6);
+	-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+	mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+	-webkit-mask-composite:xor;mask-composite:exclude;
+	}
+
+@media (prefers-reduced-motion: reduce){
+	.login-card::before{animation:none}
+}
+
+
 .brand{display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:18px}
 .logo{font-size:28px}
-.title{font-weight:800;font-size:20px;color:#0f172a}
-.subtitle{color:#334155;font-size:12px}
+.title{font-weight:800;font-size:20px;color:#fff}
+.subtitle{color:#cbd5e1;font-size:12px}
 .field{display:flex;flex-direction:column;gap:6px;margin:12px 0}
-.field label{font-weight:600;color:#0f172a;font-size:12px}
+.field label{font-weight:600;color:#e2e8f0;font-size:12px}
 .field input{width:100%;height:40px;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;outline:none;background:#fff;color:#0f172a;transition:border-color .15s ease, box-shadow .15s ease}
 .field input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15)}
 .field.invalid input{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
 .password{display:flex;align-items:center;gap:8px}
-.password .toggle{height:32px;padding:0 10px;border-radius:8px;border:1px solid #e5e7eb;background:#f8fafc;color:#334155;cursor:pointer}
+.password .toggle{display:inline-grid;place-items:center;height:36px;width:36px;padding:0;border-radius:8px;border:1px solid #e5e7eb;background:#f8fafc;color:#334155;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.password .toggle:hover{background:#f1f5f9;border-color:#d1d5db}
+.password .toggle svg{width:18px;height:18px}
 .error{color:#ef4444;font-size:12px}
 .auth-error{margin-top:6px;color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;padding:8px 10px;border-radius:10px;font-size:12px}
 .submit{margin-top:12px;width:100%;height:44px;border-radius:10px;background:linear-gradient(90deg,#3b82f6,#22c55e);color:#fff;font-weight:700;border:none;cursor:pointer;box-shadow:0 10px 20px rgba(2,132,199,.25)}
