@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { Router } from '@angular/router';
 import { HeartStore } from '../../state/heart.store';
 
 @Component({
@@ -18,5 +19,14 @@ export class TopNavComponent {
 
   onSelect(id: string) {
     if (id) this.store.select(id);
+  }
+
+  constructor(private router: Router) {}
+
+  logout() {
+    try {
+      localStorage.removeItem('auth');
+    } catch {}
+    this.router.navigateByUrl('/');
   }
 }

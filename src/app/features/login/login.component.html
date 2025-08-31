@@ -1,0 +1,38 @@
+<div class="login-wrap">
+  <div class="bg"></div>
+  <div class="login-card">
+    <div class="brand">
+      <div class="logo">🫀</div>
+      <div class="title">Analytic Dashboard</div>
+      <div class="subtitle">Sign in to continue</div>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="field" [class.invalid]="form.controls.username.touched && form.controls.username.invalid">
+        <label>Username</label>
+        <input type="text" formControlName="username" placeholder="Enter your username" autocomplete="username" />
+        <div class="error" *ngIf="form.controls.username.touched && form.controls.username.hasError('required')">Username is required</div>
+      </div>
+
+      <div class="field" [class.invalid]="form.controls.password.touched && form.controls.password.invalid">
+        <label>Password</label>
+        <div class="password">
+          <input [type]="showPassword() ? 'text' : 'password'" formControlName="password" placeholder="" autocomplete="current-password" />
+          <button type="button" class="toggle" (click)="toggleShowPassword()" aria-label="Toggle password">{{ showPassword() ? 'Hide' : 'Show' }}</button>
+        </div>
+        <div class="error" *ngIf="form.controls.password.touched && form.controls.password.hasError('required')">Password is required</div>
+      </div>
+
+      <div class="auth-error" *ngIf="authError()">{{ authError() }}</div>
+
+      <button class="submit" [disabled]="loading()" type="submit">Sign in</button>
+    </form>
+
+
+  </div>
+
+  <div class="loading-overlay" *ngIf="loading()">
+    <div class="spinner"></div>
+    <div class="loading-text">Signing you in…</div>
+  </div>
+</div>

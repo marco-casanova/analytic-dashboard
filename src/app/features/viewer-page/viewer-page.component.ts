@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { Router } from '@angular/router';
 import { ThreeCanvasComponent } from '../../ui-three/three-canvas.component';
 
 @Component({
@@ -6,5 +7,15 @@ import { ThreeCanvasComponent } from '../../ui-three/three-canvas.component';
   standalone: true,
   imports: [ThreeCanvasComponent],
   templateUrl: './viewer-page.component.html',
+  styleUrls: ['./viewer-page.component.scss'],
 })
-export class ViewerPageComponent {}
+export class ViewerPageComponent {
+  constructor(private router: Router) {}
+
+  logout() {
+    try {
+      localStorage.removeItem('auth');
+    } catch {}
+    this.router.navigateByUrl('/');
+  }
+}

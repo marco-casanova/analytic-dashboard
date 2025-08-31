@@ -1,10 +1,98 @@
-<div class="grid" style="padding:16px">
-  <div id="chart1" class="card"></div>
-  <div id="chart2" class="card"></div>
-  <div id="chart3" class="card"></div>
-  <div id="chart4" class="card"></div>
-  <div id="chart5" class="card"></div>
-  <div id="chart6" class="card"></div>
-  <div id="chart7" class="card"></div>
-  <div id="chart8" class="card"></div>
+<div class="logout"><button (click)="logout()" aria-label="Log out">⎋ Logout</button></div>
+<div class="grid">
+  <details class="accordion" open>
+    <summary>
+      <span class="summary-left"><span class="chevron" aria-hidden="true"></span><span class="label">LV Volume vs Ejection Fraction</span></span>
+      <span class="summary-right">
+        <span class="info" aria-label="About this chart" tabindex="0">ℹ
+          <span class="tooltip">Scatter of LV end-diastolic volume versus ejection fraction. Dashed lines and shaded area indicate reference EF thresholds.</span>
+        </span>
+      </span>
+    </summary>
+    <div id="chart1" class="card"></div>
+  </details>
+
+  <details class="accordion">
+    <summary>
+      <span class="summary-left"><span class="chevron" aria-hidden="true"></span><span class="label">Ejection Fraction by Group (Strip Plot)</span></span>
+      <span class="summary-right">
+        <span class="info" aria-label="About this chart" tabindex="0">ℹ
+          <span class="tooltip">Jittered dots show EF distribution per group with an average line. Useful to compare central tendency and spread.</span>
+        </span>
+      </span>
+    </summary>
+    <div id="chart2" class="card"></div>
+  </details>
+
+  <details class="accordion">
+    <summary>
+      <span class="summary-left"><span class="chevron" aria-hidden="true"></span><span class="label">HRV Distribution (Violin-like + Dots)</span></span>
+      <span class="summary-right">
+        <span class="info" aria-label="About this chart" tabindex="0">ℹ
+          <span class="tooltip">Approximate violin density with overlaid dots for HRV values per group. Includes a dashed median reference.</span>
+        </span>
+      </span>
+    </summary>
+    <div id="chart3" class="card"></div>
+  </details>
+
+  <details class="accordion">
+    <summary>
+      <span class="summary-left"><span class="chevron" aria-hidden="true"></span><span class="label">Arrhythmia Events Timeline</span></span>
+      <span class="summary-right">
+        <span class="info" aria-label="About this chart" tabindex="0">ℹ
+          <span class="tooltip">Dots along a time axis for detected events. Highlights an initial baseline window and key time points.</span>
+        </span>
+      </span>
+    </summary>
+    <div id="chart4" class="card"></div>
+  </details>
+
+  <details class="accordion">
+    <summary>
+      <span class="summary-left"><span class="chevron" aria-hidden="true"></span><span class="label">Bubble Chart (QRS vs PR, size=risk)</span></span>
+      <span class="summary-right">
+        <span class="info" aria-label="About this chart" tabindex="0">ℹ
+          <span class="tooltip">QRS vs PR intervals with bubble size mapping to risk or intensity. Reference lines mark typical thresholds.</span>
+        </span>
+      </span>
+    </summary>
+    <div id="chart5" class="card"></div>
+  </details>
+
+  <details class="accordion">
+    <summary>
+      <span class="summary-left"><span class="chevron" aria-hidden="true"></span><span class="label">Polar Dot Plot (Activation Phase)</span></span>
+      <span class="summary-right">
+        <span class="info" aria-label="About this chart" tabindex="0">ℹ
+          <span class="tooltip">Dots in polar coordinates (theta vs radius) to visualize activation phase distribution.</span>
+        </span>
+      </span>
+    </summary>
+    <div id="chart6" class="card"></div>
+  </details>
+
+  <details class="accordion">
+    <summary>
+      <span class="summary-left"><span class="chevron" aria-hidden="true"></span><span class="label">Correlation Matrix</span></span>
+      <span class="summary-right">
+        <span class="info" aria-label="About this chart" tabindex="0">ℹ
+          <span class="tooltip">Heatmap of pairwise correlations with dot overlay sized by magnitude. Helps identify strongest relationships.</span>
+        </span>
+      </span>
+    </summary>
+    <div id="chart7" class="card"></div>
+  </details>
+
+  <details class="accordion">
+    <summary>
+      <span class="summary-left"><span class="chevron" aria-hidden="true"></span><span class="label">Swarm Plot (jittered)</span></span>
+      <span class="summary-right">
+        <span class="info" aria-label="About this chart" tabindex="0">ℹ
+          <span class="tooltip">Jittered dots show value distribution within each group with a dashed median line.</span>
+        </span>
+      </span>
+    </summary>
+    <div id="chart8" class="card"></div>
+  </details>
 </div>

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Component, DestroyRef, OnInit, inject, signal, effect } from '@angular/core';
 import * as echarts from 'echarts/core';
+import { Router } from '@angular/router';
 import type { EChartsCoreOption } from 'echarts';
 import { ScatterChart, LineChart, BarChart, HeatmapChart } from 'echarts/charts';
 import {
@@ -11,6 +12,7 @@ import {
   PolarComponent,
   LegendComponent,
   VisualMapComponent,
+  DataZoomComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { HeartStore } from '../../state/heart.store';
@@ -26,6 +28,7 @@ echarts.use([
   PolarComponent,
   LegendComponent,
   VisualMapComponent,
+  DataZoomComponent,
   CanvasRenderer,
 ]);
 
@@ -59,6 +62,17 @@ export class DotPlotsComponent implements OnInit {
 
   // Refs for charts
   private charts: echarts.ECharts[] = [];
+  private chartMap: Record<string, echarts.ECharts> = {};
+  private prog: Record<
+    string,
+    { step: number; series: Array<{ idx: number; full: any[]; shown: number }> }
+  > = {};
+  private onWindowResize = () => {
+    // Resize all charts on window resize
+    this.charts.forEach((c) => c.resize());
+  };
+
+  constructor(private router: Router) {}
 
   ngOnInit() {
     // Ensure patients are loaded, pick a selection or fallback to demo data, then render.
@@ -91,9 +105,21 @@ export class DotPlotsComponent implements OnInit {
 
     // Cleanup
     this.destroyRef.onDestroy(() => {
+      window.removeEventListener('resize', this.onWindowResize);
       this.charts.forEach((c) => c.dispose());
       this.charts = [];
+      this.chartMap = {};
     });
+
+    // Global resize listener
+    window.addEventListener('resize', this.onWindowResize);
+  }
+
+  logout() {
+    try {
+      localStorage.removeItem('auth');
+    } catch {}
+    this.router.navigateByUrl('/');
   }
 
   private async fetchAndRender(patientId: string) {
@@ -147,21 +173,36 @@ export class DotPlotsComponent implements OnInit {
     const d = this.data();
     if (!d) return;
     // 1. Scatter: LV Volume vs Ejection Fraction
-    this.mount('#chart1', this.scatterLVvsEF(d.scatter));
+    this.mountProgressive('#chart1', this.scatterLVvsEF(d.scatter));
     // 2. Dot/Strip
-    this.mount('#chart2', this.stripPlot(d.strip));
+    this.mountProgressive('#chart2', this.stripPlot(d.strip));
     // 3. Violin + dots (approximate using density line + scatter overlay)
-    this.mount('#chart3', this.violinLike(d.violin));
+    this.mountProgressive('#chart3', this.violinLike(d.violin));
     // 4. Timeline dots
-    this.mount('#chart4', this.timelineDots(d.timeline));
+    this.mountProgressive('#chart4', this.timelineDots(d.timeline));
     // 5. Bubble chart
-    this.mount('#chart5', this.bubbleChart(d.bubble));
+    this.mountProgressive('#chart5', this.bubbleChart(d.bubble));
     // 6. Polar scatter
-    this.mount('#chart6', this.polarScatter(d.polar));
+    this.mountProgressive('#chart6', this.polarScatter(d.polar));
     // 7. Correlation matrix with dot size/color
-    this.mount('#chart7', this.corrMatrix(d.corr));
+    this.mountProgressive('#chart7', this.corrMatrix(d.corr));
     // 8. Swarm (approx: jittered strip)
-    this.mount('#chart8', this.swarmPlot(d.swarm));
+    this.mountProgressive('#chart8', this.swarmPlot(d.swarm));
+
+    // Ensure charts render correctly when an accordion is opened
+    document.querySelectorAll('details.accordion').forEach((el) => {
+      el.addEventListener('toggle', () => {
+        const details = el as HTMLDetailsElement;
+        if (!details.open) return;
+        const container = details.querySelector('.card') as HTMLElement | null;
+        if (!container || !container.id) return;
+        // Delay to allow layout to settle
+        setTimeout(() => {
+          const chart = this.chartMap[container.id];
+          if (chart) chart.resize();
+        }, 0);
+      });
+    });
   }
 
   private mount(sel: string, option: echarts.EChartsCoreOption) {
@@ -170,16 +211,81 @@ export class DotPlotsComponent implements OnInit {
     const chart = echarts.init(el, undefined, { renderer: 'canvas' });
     chart.setOption(option);
     this.charts.push(chart);
+    if (el.id) this.chartMap[el.id] = chart;
+  }
+
+  private mountProgressive(
+    sel: string,
+    build: {
+      option: EChartsCoreOption;
+      progressive?: Array<{ idx: number; full: any[]; shown: number }>;
+      step?: number;
+    }
+  ) {
+    const el = document.querySelector(sel) as HTMLElement | null;
+    if (!el) return;
+    const chart = echarts.init(el, undefined, { renderer: 'canvas' });
+    chart.setOption(build.option);
+    this.charts.push(chart);
+    if (el.id) this.chartMap[el.id] = chart;
+    if (el.id && build.progressive?.length) {
+      this.prog[el.id] = {
+        step: build.step ?? 200,
+        series: build.progressive.map((p) => ({ idx: p.idx, full: p.full, shown: p.shown })),
+      };
+      const reveal = () => this.revealMore(el.id!, chart);
+      chart.on('dataZoom', reveal);
+      chart.getZr().on('dblclick', reveal);
+    }
+  }
+
+  private revealMore(id: string, chart: echarts.ECharts) {
+    const state = this.prog[id];
+    if (!state) return;
+    let remaining = state.step;
+    const updates: { seriesIndex: number; data: any[] }[] = [];
+    let progressed = false;
+    while (remaining > 0) {
+      progressed = false;
+      for (const s of state.series) {
+        if (remaining <= 0) break;
+        if (s.shown >= s.full.length) continue;
+        const add = Math.min(
+          remaining,
+          Math.max(1, Math.floor(state.step / Math.max(1, state.series.length)))
+        );
+        s.shown = Math.min(s.shown + add, s.full.length);
+        updates.push({ seriesIndex: s.idx, data: s.full.slice(0, s.shown) });
+        remaining -= add;
+        progressed = true;
+      }
+      if (!progressed) break;
+    }
+    if (updates.length) {
+      chart.setOption(
+        { series: updates.map((u) => ({ index: u.seriesIndex, data: u.data })) },
+        false
+      );
+    }
   }
 
   private disposeCharts() {
     this.charts.forEach((c) => c.dispose());
     this.charts = [];
+    this.chartMap = {};
+    this.prog = {};
   }
 
-  private scatterLVvsEF(points: Array<{ lv: number; ef: number; id?: string }>): EChartsCoreOption {
+  private scatterLVvsEF(points: Array<{ lv: number; ef: number; id?: string }>): {
+    option: EChartsCoreOption;
+    progressive: Array<{ idx: number; full: any[]; shown: number }>;
+    step: number;
+  } {
     const exam = this.examInfo();
-    return {
+    const base = points.map((p) => [p.lv, p.ef]);
+    const full = this.expandToN(base, 1000, 0.8, 1.2);
+    const shown = Math.min(200, full.length);
+    const option: EChartsCoreOption = {
       title: { text: 'LV Volume vs Ejection Fraction' },
       tooltip: {
         trigger: 'item',
@@ -190,11 +296,12 @@ export class DotPlotsComponent implements OnInit {
       },
       xAxis: { name: 'LV Volume (ml)' },
       yAxis: { name: 'Ejection Fraction (%)', min: 0, max: 80 },
+      dataZoom: [{ type: 'inside' }, { type: 'slider' }],
       series: [
         {
           type: 'scatter',
           symbolSize: 10,
-          data: points.map((p) => [p.lv, p.ef]),
+          data: full.slice(0, shown),
           markLine: {
             silent: true,
             data: [
@@ -212,44 +319,63 @@ export class DotPlotsComponent implements OnInit {
         },
       ],
     };
+    return { option, progressive: [{ idx: 0, full, shown }], step: 200 };
   }
 
-  private stripPlot(input: {
-    groups: string[];
-    values: Record<string, number[]>;
-  }): EChartsCoreOption {
-    const series = input.groups.map((g, idx) => ({
-      name: g,
-      type: 'scatter',
-      xAxisIndex: 0,
-      yAxisIndex: 0,
-      data: input.values[g].map((v) => [idx + 1 + (Math.random() - 0.5) * 0.2, v]),
-      symbolSize: 8,
-      markLine: {
-        symbol: 'none',
-        data: [{ name: 'Mean', type: 'average' }],
-        lineStyle: { type: 'dashed' },
-      },
-    }));
+  private stripPlot(input: { groups: string[]; values: Record<string, number[]> }): {
+    option: EChartsCoreOption;
+    progressive: Array<{ idx: number; full: any[]; shown: number }>;
+    step: number;
+  } {
+    const series: any[] = [];
+    const prog: Array<{ idx: number; full: any[]; shown: number }> = [];
+    const perSeriesTarget = Math.ceil(1000 / Math.max(1, input.groups.length));
+    const perSeriesShown = Math.max(1, Math.floor(200 / Math.max(1, input.groups.length)));
+    input.groups.forEach((g, idx) => {
+      const base = (input.values[g] ?? []).map((v) => [idx + 1 + (Math.random() - 0.5) * 0.2, v]);
+      const full = this.expandToN(base, perSeriesTarget, 0.2, 0.8);
+      const shown = Math.min(perSeriesShown, full.length);
+      const s = {
+        name: g,
+        type: 'scatter',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: full.slice(0, shown),
+        symbolSize: 8,
+        markLine: {
+          symbol: 'none',
+          data: [{ name: 'Mean', type: 'average' }],
+          lineStyle: { type: 'dashed' },
+        },
+      };
+      series.push(s);
+      prog.push({ idx: series.length - 1, full, shown });
+    });
     return {
-      title: { text: 'Ejection Fraction by Group (Strip Plot)' },
-      tooltip: { trigger: 'item' },
-      xAxis: {
-        name: 'Group',
-        type: 'value',
-        min: 0,
-        max: input.groups.length + 1,
-        axisLabel: { formatter: (v: number) => input.groups[v - 1] ?? '' },
+      option: {
+        title: { text: 'Ejection Fraction by Group (Strip Plot)' },
+        tooltip: { trigger: 'item' },
+        xAxis: {
+          name: 'Group',
+          type: 'value',
+          min: 0,
+          max: input.groups.length + 1,
+          axisLabel: { formatter: (v: number) => input.groups[v - 1] ?? '' },
+        },
+        yAxis: { name: 'EF (%)' },
+        dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+        series,
       },
-      yAxis: { name: 'EF (%)' },
-      series,
+      progressive: prog,
+      step: 200,
     };
   }
 
-  private violinLike(input: {
-    groups: string[];
-    values: Record<string, number[]>;
-  }): EChartsCoreOption {
+  private violinLike(input: { groups: string[]; values: Record<string, number[]> }): {
+    option: EChartsCoreOption;
+    progressive: Array<{ idx: number; full: any[]; shown: number }>;
+    step: number;
+  } {
     // Not a true violin; density estimation is approximated by bins (for demo)
     const bins = (arr: number[], n = 20) => {
       const min = Math.min(...arr),
@@ -263,6 +389,7 @@ export class DotPlotsComponent implements OnInit {
       return counts.map((b) => [b.c, b.y]);
     };
     const series: any[] = [];
+    const prog: Array<{ idx: number; full: any[]; shown: number }> = [];
     input.groups.forEach((g, idx) => {
       const values = input.values[g] ?? [];
       series.push({
@@ -276,114 +403,168 @@ export class DotPlotsComponent implements OnInit {
         lineStyle: { width: 1 },
         areaStyle: {},
       });
-      series.push({
+      const baseScatter = values.map((v) => [idx + 1 + (Math.random() - 0.5) * 0.2, v]);
+      const full = this.expandToN(
+        baseScatter,
+        Math.ceil(1000 / Math.max(1, input.groups.length)),
+        0.2,
+        0.8
+      );
+      const shown = Math.max(1, Math.floor(200 / Math.max(1, input.groups.length)));
+      const scatterSeries = {
         name: g,
         type: 'scatter',
-        data: values.map((v) => [idx + 1 + (Math.random() - 0.5) * 0.2, v]),
+        data: full.slice(0, shown),
         symbolSize: 6,
-      });
+      };
+      series.push(scatterSeries);
+      prog.push({ idx: series.length - 1, full, shown });
     });
     const all = input.groups.flatMap((g) => input.values[g] ?? []);
     const median = this.median(all);
     return {
-      title: { text: 'HRV Distribution (Violin-like + Dots)' },
-      tooltip: { trigger: 'item' },
-      xAxis: { name: 'Group', type: 'value', min: 0, max: input.groups.length + 1 },
-      yAxis: { name: 'HRV' },
-      series: [
-        ...series,
-        {
-          type: 'line',
-          name: 'Median',
-          data: [
-            [0, median],
-            [input.groups.length + 1, median],
-          ],
-          symbol: 'none',
-          lineStyle: { type: 'dashed', color: '#ffa726' },
-        },
-      ],
+      option: {
+        title: { text: 'HRV Distribution (Violin-like + Dots)' },
+        tooltip: { trigger: 'item' },
+        xAxis: { name: 'Group', type: 'value', min: 0, max: input.groups.length + 1 },
+        yAxis: { name: 'HRV' },
+        dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+        series: [
+          ...series,
+          {
+            type: 'line',
+            name: 'Median',
+            data: [
+              [0, median],
+              [input.groups.length + 1, median],
+            ],
+            symbol: 'none',
+            lineStyle: { type: 'dashed', color: '#ffa726' },
+          },
+        ],
+      },
+      progressive: prog,
+      step: 200,
     };
   }
 
-  private timelineDots(events: Array<{ t: number; label?: string }>): echarts.EChartsCoreOption {
+  private timelineDots(events: Array<{ t: number; label?: string }>): {
+    option: EChartsCoreOption;
+    progressive: Array<{ idx: number; full: any[]; shown: number }>;
+    step: number;
+  } {
     const first = events?.[0]?.t ?? 0;
     const last = events?.[events.length - 1]?.t ?? 0;
+    const base = (events ?? []).map((e) => [e.t, 0.5]);
+    const full = this.expandToN(base, 1000, 1.0, 0.02);
+    const shown = Math.min(200, full.length);
     return {
-      title: { text: 'Arrhythmia Events Timeline' },
-      tooltip: { trigger: 'item' },
-      xAxis: { name: 'Time (s)', type: 'value' },
-      yAxis: { show: false, min: 0, max: 1 },
-      series: [
-        {
-          type: 'scatter',
-          symbolSize: 10,
-          data: events.map((e) => [e.t, 0.5]),
-          markArea: {
-            silent: true,
-            data: [[{ xAxis: first }, { xAxis: Math.min(last, first + 10) }]],
-            itemStyle: { color: 'rgba(33,150,243,0.08)' },
-            label: { show: true, formatter: 'Baseline Window' },
+      option: {
+        title: { text: 'Arrhythmia Events Timeline' },
+        tooltip: { trigger: 'item' },
+        xAxis: { name: 'Time (s)', type: 'value' },
+        yAxis: { show: false, min: 0, max: 1 },
+        dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+        series: [
+          {
+            type: 'scatter',
+            symbolSize: 10,
+            data: full.slice(0, shown),
+            markArea: {
+              silent: true,
+              data: [[{ xAxis: first }, { xAxis: Math.min(last, first + 10) }]],
+              itemStyle: { color: 'rgba(33,150,243,0.08)' },
+              label: { show: true, formatter: 'Baseline Window' },
+            },
+            markPoint: {
+              data: [
+                { name: 'Onset', coord: [first, 0.5] },
+                { name: 'Last', coord: [last, 0.5] },
+              ],
+            },
           },
-          markPoint: {
-            data: [
-              { name: 'Onset', coord: [first, 0.5] },
-              { name: 'Last', coord: [last, 0.5] },
-            ],
-          },
-        },
-      ],
+        ],
+      },
+      progressive: [{ idx: 0, full, shown }],
+      step: 200,
     };
   }
 
-  private bubbleChart(
-    points: Array<{ x: number; y: number; r: number; color?: string }>
-  ): EChartsCoreOption {
+  private bubbleChart(points: Array<{ x: number; y: number; r: number; color?: string }>): {
+    option: EChartsCoreOption;
+    progressive: Array<{ idx: number; full: any[]; shown: number }>;
+    step: number;
+  } {
+    const base = points.map((p) => [p.x, p.y, p.r]);
+    const full = this.expandToN(base, 1000, 1.0, 1.0, true);
+    const shown = Math.min(200, full.length);
     return {
-      title: { text: 'Bubble Chart (QRS vs PR, size=risk)' },
-      tooltip: { trigger: 'item' },
-      xAxis: { name: 'QRS (ms)', min: 60, max: 200 },
-      yAxis: { name: 'PR (ms)', min: 60, max: 300 },
-      series: [
-        {
-          type: 'scatter',
-          symbolSize: (p: any) => p[2],
-          data: points.map((p) => [p.x, p.y, p.r]),
-          markLine: {
-            silent: true,
-            data: [
-              { xAxis: 120, name: 'QRS 120ms' },
-              { yAxis: 200, name: 'PR 200ms' },
-            ],
-            lineStyle: { type: 'dashed' },
-            label: { formatter: '{b}' },
+      option: {
+        title: { text: 'Bubble Chart (QRS vs PR, size=risk)' },
+        tooltip: { trigger: 'item' },
+        xAxis: { name: 'QRS (ms)', min: 60, max: 200 },
+        yAxis: { name: 'PR (ms)', min: 60, max: 300 },
+        dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+        series: [
+          {
+            type: 'scatter',
+            symbolSize: (p: any) => p[2],
+            data: full.slice(0, shown),
+            markLine: {
+              silent: true,
+              data: [
+                { xAxis: 120, name: 'QRS 120ms' },
+                { yAxis: 200, name: 'PR 200ms' },
+              ],
+              lineStyle: { type: 'dashed' },
+              label: { formatter: '{b}' },
+            },
+            markArea: {
+              silent: true,
+              data: [
+                [{ xAxis: 120 }, { xAxis: 200 }],
+                [{ yAxis: 200 }, { yAxis: 300 }],
+              ],
+              itemStyle: { color: 'rgba(239,83,80,0.08)' },
+            },
           },
-          markArea: {
-            silent: true,
-            data: [
-              [{ xAxis: 120 }, { xAxis: 200 }],
-              [{ yAxis: 200 }, { yAxis: 300 }],
-            ],
-            itemStyle: { color: 'rgba(239,83,80,0.08)' },
-          },
-        },
-      ],
+        ],
+      },
+      progressive: [{ idx: 0, full, shown }],
+      step: 200,
     };
   }
 
-  private polarScatter(points: Array<{ theta: number; r: number }>): EChartsCoreOption {
+  private polarScatter(points: Array<{ theta: number; r: number }>): {
+    option: EChartsCoreOption;
+    progressive: Array<{ idx: number; full: any[]; shown: number }>;
+    step: number;
+  } {
+    const base = points.map((p) => [p.theta, p.r]);
+    const full = this.expandToN(base, 1000, 1.0, 1.0);
+    const shown = Math.min(200, full.length);
     return {
-      title: { text: 'Polar Dot Plot (Activation Phase)' },
-      angleAxis: { type: 'value', startAngle: 90 },
-      radiusAxis: {},
-      polar: {},
-      series: [
-        { type: 'scatter', coordinateSystem: 'polar', data: points.map((p) => [p.theta, p.r]) },
-      ],
+      option: {
+        title: { text: 'Polar Dot Plot (Activation Phase)' },
+        angleAxis: { type: 'value', startAngle: 90 },
+        radiusAxis: {},
+        polar: {},
+        dataZoom: [
+          { type: 'inside', angleAxisIndex: 0 },
+          { type: 'inside', radiusAxisIndex: 0 },
+        ],
+        series: [{ type: 'scatter', coordinateSystem: 'polar', data: full.slice(0, shown) }],
+      },
+      progressive: [{ idx: 0, full, shown }],
+      step: 200,
     };
   }
 
-  private corrMatrix(input: { labels: string[]; matrix: number[][] }): EChartsCoreOption {
+  private corrMatrix(input: { labels: string[]; matrix: number[][] }): {
+    option: EChartsCoreOption;
+    progressive: Array<{ idx: number; full: any[]; shown: number }>;
+    step: number;
+  } {
     const data: [number, number, number][] = [];
     input.matrix.forEach((row, i) => row.forEach((v, j) => data.push([i, j, v])));
     let top: { i: number; j: number; v: number } | undefined;
@@ -396,73 +577,92 @@ export class DotPlotsComponent implements OnInit {
     const topText = top
       ? `Top correlation: ${input.labels[top.i]} vs ${input.labels[top.j]} = ${top.v.toFixed(2)}`
       : '';
+    const overlayBase = data.map(([i, j, v]) => [i, j, Math.abs(v) * 20]);
+    const full = this.repeatToN(overlayBase, 1000);
+    const shown = Math.min(200, full.length);
     return {
-      title: { text: 'Correlation Matrix' },
-      tooltip: { position: 'top' },
-      xAxis: { type: 'category', data: input.labels },
-      yAxis: { type: 'category', data: input.labels },
-      visualMap: { min: -1, max: 1, orient: 'horizontal', left: 'center', bottom: 0 },
-      graphic: topText
-        ? [
-            {
-              type: 'text',
-              left: 10,
-              top: 10,
-              style: { text: topText, fill: '#cfd8dc', fontSize: 12 },
+      option: {
+        title: { text: 'Correlation Matrix' },
+        tooltip: { position: 'top' },
+        xAxis: { type: 'category', data: input.labels },
+        yAxis: { type: 'category', data: input.labels },
+        visualMap: { min: -1, max: 1, orient: 'horizontal', left: 'center', bottom: 0 },
+        graphic: topText
+          ? [
+              {
+                type: 'text',
+                left: 10,
+                top: 10,
+                style: { text: topText, fill: '#cfd8dc', fontSize: 12 },
+              },
+            ]
+          : [],
+        dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+        series: [
+          { type: 'heatmap', data, progressive: 0 },
+          {
+            type: 'scatter',
+            data: full.slice(0, shown),
+            symbolSize: (d: any) => d[2],
+            itemStyle: {
+              color: (params: any) =>
+                input.matrix[params.data[1]][params.data[0]] >= 0 ? '#42a5f5' : '#ef5350',
             },
-          ]
-        : [],
-      series: [
-        { type: 'heatmap', data, progressive: 0 },
-        {
-          type: 'scatter',
-          data: data.map(([i, j, v]) => [i, j, Math.abs(v) * 20]),
-          symbolSize: (d: any) => d[2],
-          itemStyle: {
-            color: (params: any) =>
-              input.matrix[params.data[1]][params.data[0]] >= 0 ? '#42a5f5' : '#ef5350',
           },
-        },
-      ],
+        ],
+      },
+      progressive: [{ idx: 1, full, shown }],
+      step: 200,
     };
   }
 
-  private swarmPlot(input: {
-    groups: string[];
-    values: Record<string, number[]>;
-  }): EChartsCoreOption {
-    const series = input.groups.map((g, idx) => ({
-      name: g,
-      type: 'scatter',
-      data: input.values[g].map((v) => [idx + 1 + (Math.random() - 0.5) * 0.6, v]),
-      symbolSize: 8,
-    }));
+  private swarmPlot(input: { groups: string[]; values: Record<string, number[]> }): {
+    option: EChartsCoreOption;
+    progressive: Array<{ idx: number; full: any[]; shown: number }>;
+    step: number;
+  } {
+    const series: any[] = [];
+    const prog: Array<{ idx: number; full: any[]; shown: number }> = [];
+    const perSeriesTarget = Math.ceil(1000 / Math.max(1, input.groups.length));
+    const perSeriesShown = Math.max(1, Math.floor(200 / Math.max(1, input.groups.length)));
+    input.groups.forEach((g, idx) => {
+      const base = (input.values[g] ?? []).map((v) => [idx + 1 + (Math.random() - 0.5) * 0.6, v]);
+      const full = this.expandToN(base, perSeriesTarget, 0.6, 0.8);
+      const shown = Math.min(perSeriesShown, full.length);
+      series.push({ name: g, type: 'scatter', data: full.slice(0, shown), symbolSize: 8 });
+      prog.push({ idx: series.length - 1, full, shown });
+    });
     const all = input.groups.flatMap((g) => input.values[g] ?? []);
     const med = this.median(all);
     return {
-      title: { text: 'Swarm Plot (jittered)' },
-      tooltip: { trigger: 'item' },
-      xAxis: {
-        name: 'Group',
-        type: 'value',
-        min: 0,
-        max: input.groups.length + 1,
-        axisLabel: { formatter: (v: number) => input.groups[v - 1] ?? '' },
-      },
-      yAxis: { name: 'Value' },
-      series: [
-        ...series,
-        {
-          type: 'line',
-          name: 'Median',
-          data: [
-            [0, med],
-            [input.groups.length + 1, med],
-          ],
-          symbol: 'none',
-          lineStyle: { type: 'dashed', color: '#ab47bc' },
+      option: {
+        title: { text: 'Swarm Plot (jittered)' },
+        tooltip: { trigger: 'item' },
+        xAxis: {
+          name: 'Group',
+          type: 'value',
+          min: 0,
+          max: input.groups.length + 1,
+          axisLabel: { formatter: (v: number) => input.groups[v - 1] ?? '' },
         },
-      ],
+        yAxis: { name: 'Value' },
+        dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+        series: [
+          ...series,
+          {
+            type: 'line',
+            name: 'Median',
+            data: [
+              [0, med],
+              [input.groups.length + 1, med],
+            ],
+            symbol: 'none',
+            lineStyle: { type: 'dashed', color: '#ab47bc' },
+          },
+        ],
+      },
+      progressive: prog,
+      step: 200,
     };
   }
 
@@ -524,5 +724,45 @@ export class DotPlotsComponent implements OnInit {
       t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
+  }
+
+  // Build 1000-point datasets with jitter and provide helpers for reveal
+  private expandToN(
+    base: any[],
+    target: number,
+    jitterX = 0.5,
+    jitterY = 0.5,
+    bubble = false
+  ): any[] {
+    if (!Array.isArray(base) || base.length === 0) return [];
+    const rng = this.seededRandom('chart-augment');
+    const out: any[] = [];
+    const bx = base.map((p) => p[0]);
+    const by = base.map((p) => p[1]);
+    const minX = Math.min(...bx),
+      maxX = Math.max(...bx);
+    const minY = Math.min(...by),
+      maxY = Math.max(...by);
+    const dx = maxX - minX || 1;
+    const dy = maxY - minY || 1;
+    for (let i = 0; i < target; i++) {
+      const src = base[i % base.length];
+      const jx = (rng() - 0.5) * jitterX * dx * 0.02; // up to ~2% of range
+      const jy = (rng() - 0.5) * jitterY * dy * 0.02;
+      if (bubble) {
+        const jr = 1 + (rng() - 0.5) * 0.1; // +/-10%
+        out.push([src[0] + jx, src[1] + jy, Math.max(1, src[2] * jr)]);
+      } else {
+        out.push([src[0] + jx, src[1] + jy, ...src.slice(2)]);
+      }
+    }
+    return out;
+  }
+
+  private repeatToN(base: any[], target: number): any[] {
+    if (!Array.isArray(base) || base.length === 0) return [];
+    const out: any[] = [];
+    for (let i = 0; i < target; i++) out.push(base[i % base.length]);
+    return out;
   }
 }

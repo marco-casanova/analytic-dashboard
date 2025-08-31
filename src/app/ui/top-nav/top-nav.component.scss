@@ -10,3 +10,5 @@
 .select{display:flex;align-items:center;gap:6px;background:#0f1520;border:1px solid #233146;border-radius:8px;padding:4px 8px}
 .select select{background:transparent;color:#e3f2fd;border:none;outline:none}
 .toggle{display:flex;align-items:center;gap:6px;background:#0f1520;border:1px solid #233146;border-radius:8px;padding:6px 10px}
+.logout-btn{background:#182232;color:#e3f2fd;border:1px solid #2a3a52;border-radius:8px;padding:6px 10px;cursor:pointer}
+.logout-btn:hover{filter:brightness(1.1)}

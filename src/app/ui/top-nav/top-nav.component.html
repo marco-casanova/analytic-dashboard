@@ -1,10 +1,10 @@
 <header class="topnav">
-  <div class="brand" routerLink="/" title="Analytic Dashboard">
+  <div class="brand" routerLink="/viewer" title="Analytic Dashboard">
     <span class="logo">❤</span>
     <span class="name">Cardio Insights</span>
   </div>
   <nav class="links">
-    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">3D Viewer</a>
+    <a routerLink="/viewer" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">3D Viewer</a>
     <a routerLink="/plots" routerLinkActive="active">Analytics</a>
   </nav>
   <div class="spacer"></div>
@@ -13,8 +13,11 @@
       <span>Patient</span>
       <select [value]="selectedId() ?? ''" (change)="onSelect($any($event.target).value)">
         <option value="" disabled>Select…</option>
-        <option *ngFor="let p of patients()" [value]="p.id">{{p.name}} ({{p.id}})</option>
+        @for (p of patients(); track p.id) {
+          <option [value]="p.id">{{p.name}} ({{p.id}})</option>
+        }
       </select>
     </label>
+    <button class="logout-btn" (click)="logout()">Logout</button>
   </div>
 </header>
