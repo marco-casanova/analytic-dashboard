@@ -5,6 +5,15 @@ export interface Patient {
   name: string;
   studyDate: string;
   modelUrl: string;
+  notes?: Array<PatientNote>;
+}
+
+export interface PatientNote {
+  title: string;
+  body: string;
+  // Either provide absolute world anchor or normalized relative (-1..1) coordinates
+  anchor?: { x: number; y: number; z: number };
+  rel?: { x: number; y: number; z: number };
 }
 export interface HeartPoint {
   x: number;

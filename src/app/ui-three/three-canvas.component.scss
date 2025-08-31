@@ -1,95 +1,49 @@
-:host { display: block; height: calc(100dvh - 54px); }
+/* Clean, validated SCSS */
+:host { display: block; height: calc(100dvh - 54px); position: relative; }
 
 /* Right-side viewer menu (avoid overlap with sticky top nav) */
-.toolbar {
-	position: fixed;
-	top: 64px; /* ensure we sit below the sticky top nav */
-	right: 16px;
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 10px 12px;
-	color: #e6eef7;
-	background: linear-gradient(180deg, rgba(16,22,31,.72), rgba(11,15,20,.72));
-	border: 1px solid rgba(255,255,255,.08);
-	box-shadow: 0 10px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
-	border-radius: 12px;
-	backdrop-filter: blur(10px);
-	z-index: 20; /* below topnav (z=50), above canvas */
-	flex-wrap: wrap;
-}
-
+.toolbar { position: fixed; top: 64px; right: 16px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; color: #e6eef7; background: linear-gradient(180deg, rgba(16,22,31,.72), rgba(11,15,20,.72)); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 10px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06); border-radius: 12px; backdrop-filter: blur(10px); z-index: 20; flex-wrap: wrap; }
 .toolbar label { display: flex; align-items: center; gap: 6px; }
-.toolbar select,
-.toolbar input[type="color"],
-.toolbar input[type="checkbox"] {
-	accent-color: #42a5f5;
-}
-
-/* Pretty toggle switch for toolbar checkboxes */
-.toolbar label.toggle {
-	gap: 10px;
-}
+.toolbar select, .toolbar input[type="color"], .toolbar input[type="checkbox"] { accent-color: #42a5f5; }
+.toolbar label.toggle { gap: 10px; }
 .toolbar label.toggle > span { font-size: 12.5px; opacity: .9; }
-.toolbar label.toggle > input[type="checkbox"] {
-	appearance: none;
-	width: 36px; height: 22px;
-	border-radius: 999px;
-	background: rgba(255,255,255,.12);
-	border: 1px solid rgba(255,255,255,.14);
-	position: relative;
-	outline: none;
-	transition: background .2s ease, border-color .2s ease;
-}
-.toolbar label.toggle > input[type="checkbox"]::after {
-	content: '';
-	position: absolute;
-	top: 2px; left: 2px;
-	width: 18px; height: 18px;
-	border-radius: 50%;
-	background: #b9d7ff;
-	box-shadow: 0 1px 2px rgba(0,0,0,.35);
-	transition: transform .2s ease;
-}
-.toolbar label.toggle > input[type="checkbox"]:checked {
-	background: linear-gradient(180deg, rgba(66,165,245,.45), rgba(66,165,245,.28));
-	border-color: rgba(66,165,245,.6);
-}
-.toolbar label.toggle > input[type="checkbox"]:checked::after {
-	transform: translateX(14px);
-}
+.toolbar label.toggle > input[type="checkbox"] { appearance: none; width: 36px; height: 22px; border-radius: 999px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.14); position: relative; outline: none; transition: background .2s ease, border-color .2s ease; }
+.toolbar label.toggle > input[type="checkbox"]::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #b9d7ff; box-shadow: 0 1px 2px rgba(0,0,0,.35); transition: transform .2s ease; }
+.toolbar label.toggle > input[type="checkbox"]:checked { background: linear-gradient(180deg, rgba(66,165,245,.45), rgba(66,165,245,.28)); border-color: rgba(66,165,245,.6); }
+.toolbar label.toggle > input[type="checkbox"]:checked::after { transform: translateX(14px); }
+.toolbar select { color: #e6eef7; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 6px 8px; }
+.toolbar button, .toolbar a.btn { color: #e6eef7; background: linear-gradient(180deg, rgba(66,165,245,.20), rgba(66,165,245,.12)); border: 1px solid rgba(66,165,245,.35); border-radius: 10px; padding: 6px 10px; cursor: pointer; text-decoration: none; transition: filter .15s ease, background .2s ease; }
+.toolbar button:hover, .toolbar a.btn:hover { filter: brightness(1.1); }
+.toolbar label { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 6px 8px; }
+@media (max-width: 920px) { .toolbar { right: 12px; left: 12px; top: 64px; justify-content: space-between; } }
 
-.toolbar select {
-	color: #e6eef7;
-	background: rgba(255,255,255,.05);
-	border: 1px solid rgba(255,255,255,.12);
-	border-radius: 8px;
-	padding: 6px 8px;
-}
+/* Canvas */
+.viewport { width: 100%; height: 100%; display: block; background: #0b0f14; }
 
-.toolbar button,
-.toolbar a.btn {
-	color: #e6eef7;
-	background: linear-gradient(180deg, rgba(66,165,245,.20), rgba(66,165,245,.12));
-	border: 1px solid rgba(66,165,245,.35);
-	border-radius: 10px;
-	padding: 6px 10px;
-	cursor: pointer;
-	text-decoration: none;
-	transition: filter .15s ease, background .2s ease;
-}
-.toolbar button:hover,
-.toolbar a.btn:hover { filter: brightness(1.1); }
+/* 2D medical notes overlay */
+.notes-layer { position: absolute; inset: 0; pointer-events: none; }
+.notes-layer .notes-mask { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at top, rgba(10,15,20,0.0) 0%, rgba(10,15,20,0.10) 60%, rgba(10,15,20,0.18) 100%); }
+.notes-layer .notes-empty { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(12,18,28,0.55); border: 1px dashed rgba(99,164,255,0.35); color: #cfe3ff; padding: 10px 14px; border-radius: 10px; font-size: 13px; opacity: 0.9; }
+.notes-layer svg.note-lines { position: absolute; inset: 0; width: 100%; height: 100%; stroke: rgba(156,195,255,0.75); stroke-width: 1.5; vector-effect: non-scaling-stroke; shape-rendering: geometricPrecision; }
 
-.toolbar label {
-	background: rgba(255,255,255,.04);
-	border: 1px solid rgba(255,255,255,.06);
-	border-radius: 10px;
-	padding: 6px 8px;
-}
+/* Note cards */
+.note-card { position: absolute; transform: translate(-10px, -10px); max-width: 260px; pointer-events: auto; }
+.note-card .note-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.note-card .note-body { backdrop-filter: blur(4px); background: rgba(15,21,32,0.35); border: 1px solid rgba(99,164,255,0.22); color: #e6f0ff; padding: 10px 12px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); font-size: 12.5px; line-height: 1.45; opacity: 0.95; }
+.note-card .note-title { color: #ffffff; font-weight: 700; margin-bottom: 6px; }
+.note-card .note-text { color: #e6f0ff; opacity: 0.95; }
+.note-card .collapse-btn { width: 28px; height: 24px; border-radius: 8px; border: 1px solid rgba(99,164,255,0.24); background: rgba(12,18,28,0.55); color: #cfe3ff; cursor: pointer; pointer-events: auto; }
+.note-card .collapse-btn .icon { position: relative; display: inline-block; width: 12px; height: 12px; }
+.note-card .collapse-btn .icon::before, .note-card .collapse-btn .icon::after { content: ''; position: absolute; background: #cfe3ff; border-radius: 1px; transition: transform 160ms ease, opacity 160ms ease; }
+.note-card .collapse-btn .icon::before { left: 0; right: 0; top: 50%; height: 2px; transform: translateY(-50%); }
+.note-card .collapse-btn .icon::after { top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); }
+.note-card .collapse-btn .icon.minus::after { opacity: 0; transform: translateX(-50%) scaleY(0.2); }
+.note-card .collapse-btn .icon.plus::after { opacity: 1; }
 
-@media (max-width: 920px) {
-	.toolbar { right: 12px; left: 12px; top: 64px; justify-content: space-between; }
-}
-
-.viewport { width: 100%; height: 100%; display:block; background: #0b0f14; }
+/* Collapsed plus-only */
+.note-collapsed { position: absolute; transform: translate(-10px, -10px); pointer-events: auto; }
+.note-plus { width: 28px; height: 28px; border-radius: 999px; border: 1px solid rgba(99,164,255,0.32); background: rgba(12,18,28,0.45); color: #cfe3ff; cursor: pointer; opacity: 0.85; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+.note-plus .icon { position: relative; display: inline-block; width: 12px; height: 12px; }
+.note-plus .icon::before, .note-plus .icon::after { content: ''; position: absolute; background: #cfe3ff; border-radius: 1px; }
+.note-plus .icon::before { left: 0; right: 0; top: 50%; height: 2px; transform: translateY(-50%); }
+.note-plus .icon::after { top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); }

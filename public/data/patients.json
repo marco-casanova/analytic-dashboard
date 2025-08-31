@@ -1,6 +1,53 @@
 [
-  { "id": "p1", "name": "Ana Torres", "studyDate": "2025-07-10", "modelUrl": "/exams/CM0035_NIH3D.glb" },
-  { "id": "p2", "name": "Bruno Dias", "studyDate": "2025-07-18", "modelUrl": "/exams/CM0037_Whole_NIH3D.glb" },
-  { "id": "p3", "name": "Clara Lee", "studyDate": "2025-08-02", "modelUrl": "/exams/CM0099_20Bloodpool_001_NIH3D.glb" },
-  { "id": "p4", "name": "Diego Cruz", "studyDate": "2025-08-15", "modelUrl": "/exams/CONFIDENTIAL_BP_2022_001_NIH3D.glb" }
+  {
+    "id": "p1",
+    "name": "MD023D004_ANNA",
+    "studyDate": "2025-07-10",
+    "modelUrl": "/exams/CM0035_NIH3D.glb",
+    "notes": [
+      { "title": "Apex", "body": "Apical contour is smooth; no thrombus-like echodensities.", "rel": { "x": 0.0, "y": -0.95, "z": 0.1 } },
+      { "title": "LV lateral wall", "body": "Wall thickness within expected limits; no focal hypokinesis.", "rel": { "x": -0.7, "y": -0.1, "z": 0.2 } },
+      { "title": "Septum", "body": "Interventricular septum demonstrates symmetric motion.", "rel": { "x": 0.0, "y": 0.1, "z": 0.0 } },
+      { "title": "Aortic root", "body": "Annular plane intact; no calcific protrusion into lumen.", "rel": { "x": 0.1, "y": 0.85, "z": -0.1 } },
+      { "title": "Mitral annulus", "body": "Coaptation line regular; leaflet excursion symmetric.", "rel": { "x": -0.2, "y": 0.3, "z": 0.2 } }
+    ]
+  },
+  {
+    "id": "p2",
+    "name": "MD023D005_JEANS_2024",
+    "studyDate": "2025-07-18",
+    "modelUrl": "/exams/CM0037_Whole_NIH3D.glb",
+    "notes": [
+      { "title": "RV outflow", "body": "Laminar outflow; no dynamic obstruction.", "rel": { "x": 0.6, "y": 0.3, "z": -0.2 } },
+      { "title": "LAA", "body": "No discrete thrombus; trabeculation preserved.", "rel": { "x": -0.6, "y": 0.5, "z": 0.4 } },
+      { "title": "Apex", "body": "Tapering normal; apical motion synchronous.", "rel": { "x": 0.0, "y": -0.95, "z": 0.1 } },
+      { "title": "Septum", "body": "No septal discontinuity suggestive of VSD.", "rel": { "x": 0.0, "y": 0.1, "z": 0.0 } }
+    ]
+  },
+  {
+    "id": "p3",
+    "name": "MD023D006_CLARA_2024",
+    "studyDate": "2025-08-02",
+    "modelUrl": "/exams/CM0099_20Bloodpool_001_NIH3D.glb",
+    "notes": [
+      { "title": "Aortic root", "body": "Sinotubular junction preserved; no dilatation.", "rel": { "x": 0.15, "y": 0.85, "z": -0.1 } },
+      { "title": "Mitral annulus", "body": "Leaflet motion symmetric; no prolapse morphology.", "rel": { "x": -0.2, "y": 0.35, "z": 0.25 } },
+      { "title": "LV lateral wall", "body": "No regional wall motion abnormality.", "rel": { "x": -0.7, "y": -0.1, "z": 0.2 } },
+      { "title": "Apex", "body": "Apical contour smooth; no mural thrombus.", "rel": { "x": 0.0, "y": -0.95, "z": 0.1 } },
+      { "title": "RV outflow", "body": "Outflow tract unobstructed in current projection.", "rel": { "x": 0.6, "y": 0.3, "z": -0.2 } },
+      { "title": "LAA", "body": "No discrete thrombus.", "rel": { "x": -0.6, "y": 0.5, "z": 0.4 } }
+    ]
+  },
+  {
+    "id": "p4",
+    "name": "MD023D007_MULLER_2024",
+    "studyDate": "2025-08-15",
+    "modelUrl": "/exams/CONFIDENTIAL_BP_2022_001_NIH3D.glb",
+    "notes": [
+      { "title": "Septum", "body": "Symmetric septal motion; no dyskinesis.", "rel": { "x": 0.0, "y": 0.1, "z": 0.0 } },
+      { "title": "Apex", "body": "Apical motion synchronous; no thrombus-like echo.", "rel": { "x": 0.0, "y": -0.95, "z": 0.1 } },
+      { "title": "Aortic root", "body": "Valve plane regular; no significant calcific protrusion.", "rel": { "x": 0.1, "y": 0.85, "z": -0.1 } },
+      { "title": "Mitral annulus", "body": "Coaptation line intact.", "rel": { "x": -0.2, "y": 0.3, "z": 0.2 } }
+    ]
+  }
 ]

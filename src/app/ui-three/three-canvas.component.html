@@ -22,3 +22,40 @@
   <a routerLink="/plots" class="btn">Charts</a>
 </div>
 <canvas #canvas class="viewport" aria-label="3D Heart"></canvas>
+
+<!-- 2D medical notes overlay -->
+@if (store.twoD()) {
+  <div class="notes-layer">
+    @if (!selectedId()) {
+      <div class="notes-empty">No patient selected</div>
+    }
+    @for (n of notes(); track n.id) {
+      @if (n.visible) {
+        <svg class="note-lines" aria-hidden="true">
+          <line [attr.x1]="n.anchorSX" [attr.y1]="n.anchorSY" [attr.x2]="n.screenX" [attr.y2]="n.screenY" />
+        </svg>
+        @if (!n.collapsed) {
+          <div class="note note-card" [style.left.px]="n.screenX" [style.top.px]="n.screenY">
+            <div class="note-header">
+              <button class="collapse-btn" (click)="toggleNote(n.id)" aria-label="Collapse note">
+                <span class="icon minus"></span>
+              </button>
+            </div>
+            <div class="note-body">
+              <div class="note-title">{{ n.title }}</div>
+              <div class="note-text">{{ n.body }}</div>
+            </div>
+          </div>
+        } @else {
+          <div class="note-collapsed" [style.left.px]="n.screenX" [style.top.px]="n.screenY">
+            <button class="note-plus" (click)="toggleNote(n.id)" aria-label="Expand note">
+              <span class="icon plus"></span>
+            </button>
+          </div>
+        }
+      }
+    }
+    <!-- gradient mask for subtle readability over canvas -->
+    <div class="notes-mask"></div>
+  </div>
+}

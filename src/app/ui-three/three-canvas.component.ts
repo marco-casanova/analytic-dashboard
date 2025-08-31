@@ -62,6 +62,24 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
   private ruler?: THREE.Group;
   private rulerDivisions = 10;
 
+  // 2D annotations
+  readonly notes = signal<
+    Array<{
+      id: number;
+      title: string;
+      body: string;
+      anchor: THREE.Vector3; // world position to point
+      anchorSX: number;
+      anchorSY: number;
+      screenX: number;
+      screenY: number;
+      visible: boolean;
+      collapsed: boolean;
+    }>
+  >([]);
+  private noteIdSeq = 1;
+  private lastNotesUpdateMs = 0;
+
   // Config
   private base = inject(API_BASE, { optional: true }) ?? 'http://localhost:4000';
 
@@ -181,6 +199,22 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
   private readonly effTwoD = effect(() => {
     const twoD = this.store.twoD();
     this.applyCameraMode(twoD);
+    if (twoD) {
+      // Use patient-provided notes when available; otherwise auto-generate
+      const list = this.patients();
+      const sel = this.selectedId();
+      const p = list.find((x) => x.id === sel);
+      if (!sel) {
+        this.notes.set([]);
+      } else if (p?.notes?.length) {
+        this.generateNotesFromPatient(p.notes);
+      } else {
+        // Always refresh deterministic notes when entering 2D
+        this.generateNotesForCurrentModel();
+      }
+    } else {
+      // Keep notes but hide them in template via *ngIf
+    }
   });
 
   ngOnInit(): void {
@@ -220,6 +254,10 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
     this.renderer.setAnimationLoop(() => {
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
+      // Update note positions in 2D mode
+      if (this.store.twoD() && this.notes().length) {
+        this.updateProjectedNotes();
+      }
     });
 
     // Resize
@@ -314,6 +352,13 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
       if (this.store.showOverlay()) this.updateRuler();
       // Rebuild guides to match new bounds
       this.rebuildGuides();
+      // Regenerate notes for this model (prefer patient notes)
+      if (this.store.twoD()) {
+        const list2 = this.patients();
+        const p2 = list2.find((x) => x.id === this.selectedId());
+        if (p2?.notes?.length) this.generateNotesFromPatient(p2.notes);
+        else this.generateNotesForCurrentModel();
+      }
     } catch (e) {
       // Show a simple placeholder if patient model is unavailable
       const geo = new THREE.SphereGeometry(0.15, 32, 32);
@@ -331,6 +376,12 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
       if (this.store.wireframe()) this.updateGrid();
       if (this.store.showOverlay()) this.updateRuler();
       this.rebuildGuides();
+      if (this.store.twoD()) {
+        const list2 = this.patients();
+        const p2 = list2.find((x) => x.id === this.selectedId());
+        if (p2?.notes?.length) this.generateNotesFromPatient(p2.notes);
+        else this.generateNotesForCurrentModel();
+      }
     }
   }
 
@@ -838,6 +889,212 @@ export class ThreeCanvasComponent implements OnInit, OnDestroy {
   }
 
   // Annotations removed per request
+  // 2D medical notes
+  toggleNote(id: number) {
+    const arr = this.notes().map((n) => (n.id === id ? { ...n, collapsed: !n.collapsed } : n));
+    this.notes.set(arr);
+  }
+
+  private generateNotesForCurrentModel() {
+    const id = this.selectedId() ?? 'default';
+    const seed = this.hashString(id);
+    const rand = this.randFrom(seed);
+
+    // Determine bounds in world space
+    let min = new THREE.Vector3(-1, -1, -1);
+    let max = new THREE.Vector3(1, 1, 1);
+    if (this.heart) {
+      const box = new THREE.Box3().setFromObject(this.heart);
+      min.copy(box.min);
+      max.copy(box.max);
+    }
+    const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
+    const size = new THREE.Vector3().subVectors(max, min);
+    const half = size.clone().multiplyScalar(0.5);
+
+    const anchors: Array<{ name: string; pos: THREE.Vector3; body: string }> = [];
+    const mk = (name: string, nx: number, ny: number, nz: number, body: string) => {
+      // nx,ny,nz in [-1..1] relative to center
+      const p = new THREE.Vector3(
+        center.x + nx * half.x,
+        center.y + ny * half.y,
+        center.z + nz * half.z
+      );
+      anchors.push({ name, pos: p, body });
+    };
+    // Heuristic anchors around the bounding box to approximate heart regions
+    mk(
+      'Apex',
+      0.0,
+      -0.95,
+      0.1,
+      'Apical region: consistent with normal tapering; no mural thrombus detected in current view.'
+    );
+    mk(
+      'LV lateral wall',
+      -0.7,
+      -0.1,
+      0.2,
+      'LV lateral wall: wall thickness within expected range; no focal hypokinesis observed.'
+    );
+    mk(
+      'Septum',
+      0.0,
+      0.1,
+      0.0,
+      'Interventricular septum: symmetric motion; no VSD-like discontinuity evident.'
+    );
+    mk(
+      'RV outflow',
+      0.6,
+      0.3,
+      -0.2,
+      'RVOT: laminar outflow profile; no obstructive lesion suggested.'
+    );
+    mk(
+      'Aortic root',
+      0.1,
+      0.85,
+      -0.1,
+      'Aortic root: annular plane intact; no significant calcific protrusion into lumen.'
+    );
+    mk(
+      'LA appendage',
+      -0.6,
+      0.5,
+      0.4,
+      'LAA: no discrete thrombus; trabeculation pattern preserved.'
+    );
+    mk(
+      'Mitral annulus',
+      -0.2,
+      0.3,
+      0.2,
+      'Mitral annulus: coaptation line regular; leaflet excursion symmetric.'
+    );
+
+    // Choose 5–7 notes deterministically
+    const count = 5 + Math.floor(rand() * 3);
+    const chosen: typeof anchors = [];
+    const idxs = anchors.map((_, i) => i);
+    for (let i = idxs.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
+    }
+    for (let i = 0; i < count; i++) chosen.push(anchors[idxs[i]]);
+
+    const notes = chosen.map((a, i) => ({
+      id: this.noteIdSeq++,
+      title: a.name,
+      body: a.body,
+      anchor: a.pos.clone(),
+      anchorSX: 0,
+      anchorSY: 0,
+      screenX: 0,
+      screenY: 0,
+      visible: false,
+      collapsed: false,
+    }));
+    this.notes.set(notes);
+    // Initial projection
+    this.updateProjectedNotes();
+  }
+
+  private generateNotesFromPatient(
+    raw: Array<{
+      title: string;
+      body: string;
+      anchor?: { x: number; y: number; z: number };
+      rel?: { x: number; y: number; z: number };
+    }>
+  ) {
+    // Determine bounds of the current model to convert relative coordinates
+    let min = new THREE.Vector3(-1, -1, -1);
+    let max = new THREE.Vector3(1, 1, 1);
+    if (this.heart) {
+      const box = new THREE.Box3().setFromObject(this.heart);
+      min.copy(box.min);
+      max.copy(box.max);
+    }
+    const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
+    const half = new THREE.Vector3().subVectors(max, min).multiplyScalar(0.5);
+    const clampRel = (v: number) => Math.max(-1, Math.min(1, v));
+    const toWorld = (r: { x: number; y: number; z: number }): THREE.Vector3 =>
+      new THREE.Vector3(
+        center.x + clampRel(r.x) * half.x,
+        center.y + clampRel(r.y) * half.y,
+        center.z + clampRel(r.z) * half.z
+      );
+
+    const notes = raw.slice(0, 7).map((n, i) => ({
+      id: this.noteIdSeq++,
+      title: n.title || `Note ${i + 1}`,
+      body: n.body || '',
+      anchor: n.anchor
+        ? new THREE.Vector3(n.anchor.x, n.anchor.y, n.anchor.z)
+        : toWorld(n.rel ?? { x: 0, y: 0, z: 0 }),
+      anchorSX: 0,
+      anchorSY: 0,
+      screenX: 0,
+      screenY: 0,
+      visible: false,
+      collapsed: false,
+    }));
+    this.notes.set(notes);
+    this.updateProjectedNotes();
+  }
+
+  private updateProjectedNotes() {
+    const c = this.canvasRef?.nativeElement;
+    if (!c || !this.camera) return;
+    const now = performance.now();
+    if (now - this.lastNotesUpdateMs < 33) return; // ~30fps throttle
+    this.lastNotesUpdateMs = now;
+    const w = c.clientWidth || innerWidth;
+    const h = c.clientHeight || innerHeight;
+    const curr = this.notes();
+    let changed = false;
+    const updated = curr.map((n, idx) => {
+      const v = n.anchor.clone().project(this.camera as any);
+      const vis = v.z >= -1 && v.z <= 1 && Math.abs(v.x) <= 1.2 && Math.abs(v.y) <= 1.2;
+      // Offset notes so they don’t occlude the marker; alternate quadrants
+      const qx = (idx % 2 === 0 ? 1 : -1) * 14;
+      const qy = (idx % 3 === 0 ? 1 : -1) * 14;
+      const ax = ((v.x + 1) / 2) * w;
+      const ay = ((1 - v.y) / 2) * h;
+      const sx = ax + qx;
+      const sy = ay + qy;
+      if (!changed) {
+        const dx = Math.abs((n.screenX ?? 0) - sx);
+        const dy = Math.abs((n.screenY ?? 0) - sy);
+        const dax = Math.abs(((n as any).anchorSX ?? 0) - ax);
+        const day = Math.abs(((n as any).anchorSY ?? 0) - ay);
+        if (dx > 0.5 || dy > 0.5 || dax > 0.5 || day > 0.5 || n.visible !== vis) changed = true;
+      }
+      return { ...n, anchorSX: ax, anchorSY: ay, screenX: sx, screenY: sy, visible: vis };
+    });
+    if (changed) this.notes.set(updated);
+  }
+
+  private hashString(s: string): number {
+    let h = 2166136261 >>> 0; // FNV-1a
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  private randFrom(seed: number) {
+    let x = seed >>> 0;
+    return () => {
+      // xorshift32
+      x ^= x << 13;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      return ((x >>> 0) & 0xffffffff) / 4294967296;
+    };
+  }
 
   ngOnDestroy(): void {
     removeEventListener('resize', this.onResize);
