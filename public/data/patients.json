@@ -5,7 +5,7 @@
     "studyDate": "2025-07-10",
     "modelUrl": "/exams/CM0035_NIH3D.glb",
     "notes": [
-      { "title": "Apex", "body": "Apical contour is smooth; no thrombus-like echodensities.", "rel": { "x": 0.0, "y": -0.95, "z": 0.1 } },
+      { "title": "Apex", "body": "Apical contour is smooth; no thrombus-like echodensities.", "rel": { "x": 0.0, "y": -0.15, "z": 0.1 } },
       { "title": "LV lateral wall", "body": "Wall thickness within expected limits; no focal hypokinesis.", "rel": { "x": -0.7, "y": -0.1, "z": 0.2 } },
       { "title": "Septum", "body": "Interventricular septum demonstrates symmetric motion.", "rel": { "x": 0.0, "y": 0.1, "z": 0.0 } },
       { "title": "Aortic root", "body": "Annular plane intact; no calcific protrusion into lumen.", "rel": { "x": 0.1, "y": 0.85, "z": -0.1 } },
